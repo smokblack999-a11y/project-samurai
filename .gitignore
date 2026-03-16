@@ -1,6 +1,13 @@
 __pycache__/
 *.pyc
 .env
+.venv/
+node_modules/
+logs/
+dist/
+build/__pycache__/
+*.pyc
+.env
 node_modules/
 .venv/
 dist/
