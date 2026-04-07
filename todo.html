@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List Application</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #todo-list { list-style-type: none; padding: 0; }
+        li { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
+        .completed { text-decoration: line-through; color: gray; }
+    </style>
+</head>
+<body>
+    <h1>To-Do List Application</h1>
+    <input type="text" id="todo-input" placeholder="Add a new task..." />
+    <button id="add-todo">Add</button>
+    <ul id="todo-list"></ul>
+    <button id="clear-completed">Clear Completed</button>
+    
+    <script>
+        const todoInput = document.getElementById('todo-input');
+        const addTodoButton = document.getElementById('add-todo');
+        const todoList = document.getElementById('todo-list');
+        const clearCompletedButton = document.getElementById('clear-completed');
+        let todos = JSON.parse(localStorage.getItem('todos')) || [];
+
+        function renderTodos() {
+            todoList.innerHTML = '';
+            todos.forEach((todo, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span class="${todo.completed ? 'completed' : ''}">${todo.text}</span>
+                    <button onclick="editTodo(${index})">Edit</button>
+                    <button onclick="deleteTodo(${index})">Delete</button>
+                    <button onclick="toggleComplete(${index})">${todo.completed ? 'Undo' : 'Complete'}</button>
+                `;
+                todoList.appendChild(li);
+            });
+        }
+
+        function addTodo() {
+            const todoText = todoInput.value.trim();
+            if (todoText !== '') {
+                todos.push({ text: todoText, completed: false });
+                todoInput.value = '';
+                saveTodos();
+                renderTodos();
+            }
+        }
+
+        function deleteTodo(index) {
+            todos.splice(index, 1);
+            saveTodos();
+            renderTodos();
+        }
+
+        function toggleComplete(index) {
+            todos[index].completed = !todos[index].completed;
+            saveTodos();
+            renderTodos();
+        }
+
+        function editTodo(index) {
+            const newText = prompt('Edit todo:', todos[index].text);
+            if (newText !== null && newText.trim() !== '') {
+                todos[index].text = newText.trim();
+                saveTodos();
+                renderTodos();
+            }
+        }
+
+        function clearCompleted() {
+            todos = todos.filter(todo => !todo.completed);
+            saveTodos();
+            renderTodos();
+        }
+
+        function saveTodos() {
+            localStorage.setItem('todos', JSON.stringify(todos));
+        }
+
+        addTodoButton.addEventListener('click', addTodo);
+        clearCompletedButton.addEventListener('click', clearCompleted);
+        renderTodos();
+    </script>
+</body>
+</html>
