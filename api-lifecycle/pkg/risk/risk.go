@@ -1,35 +1,27 @@
 package risk
 
-import "time"
-
-type Input struct {
-	ConsumerCount       int
-	ActiveConsumers     int
-	TrafficShare        float64
-	UnknownTrafficShare float64
-	MigrationCompletion float64
-	ReplacementHealthy  bool
-	Sunset              *time.Time
-}
+import (
+	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/pkg/lifecycle"
+)
 
 type Decision string
 
 const (
-	Safe    Decision = "SAFE"
-	Review  Decision = "REVIEW"
+	Safe Decision = "SAFE"
+	Review Decision = "REVIEW"
 	Blocked Decision = "BLOCKED"
 )
 
 type Result struct {
-	Score       int      `json:"score"`
-	Decision    Decision `json:"decision"`
-	Confidence  int      `json:"confidence"`
-	Reasons     []string `json:"reasons"`
+	Score      int      `json:"score"`
+	Decision   Decision `json:"decision"`
+	Confidence int      `json:"confidence"`
+	Reasons    []string `json:"reasons"`
 }
 
-// Evaluate is deliberately deterministic. It does not pretend that an LLM
-// can prove an API is safe to remove. The score is explainable and bounded.
-func Evaluate(in Input, now time.Time) Result {
+// Evaluate is deterministic by design. AI may explain or enrich this result,
+// but it must not be the authority that proves an API safe to remove.
+func Evaluate(in lifecycle.Endpoint) Result {
 	score := 0
 	reasons := make([]string, 0, 8)
 
@@ -53,10 +45,10 @@ func Evaluate(in Input, now time.Time) Result {
 		score += 15
 		reasons = append(reasons, "replacement is not healthy")
 	}
+
 	if in.ConsumerCount == 0 && in.TrafficShare == 0 && in.UnknownTrafficShare == 0 {
 		score = 0
 	}
-
 	if score > 100 {
 		score = 100
 	}
@@ -69,15 +61,9 @@ func Evaluate(in Input, now time.Time) Result {
 		decision = Review
 	}
 
-	confidence := 100 - score
-	if in.ConsumerCount == 0 {
-		confidence = 100
+	return Result{
+		Score: score, Decision: decision, Confidence: 100 - score, Reasons: reasons,
 	}
-	if in.Sunset != nil && in.Sunset.Before(now) && decision == Safe {
-		reasons = append(reasons, "sunset time has passed")
-	}
-
-	return Result{Score: score, Decision: decision, Confidence: confidence, Reasons: reasons}
 }
 
 func min(a, b int) int {
