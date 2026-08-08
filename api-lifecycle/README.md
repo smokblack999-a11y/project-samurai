@@ -8,14 +8,22 @@ Answer one operational question:
 
 > Which APIs can we safely sunset, who still uses them, and what blocks migration?
 
-The MVP deliberately starts below the enterprise control-plane layer:
+The current Go core is intentionally deterministic: OpenAPI JSON -> inventory -> lifecycle model -> risk engine -> terminal report. No LLM is placed in the safety decision path.
 
-- OpenAPI inventory
-- lifecycle metadata (`active`, `deprecated`, `sunset`)
-- RFC-aware response headers
-- consumer observations
-- deterministic risk scoring
-- `safe-to-sunset` decision output
+## Run
+
+```bash
+cd api-lifecycle
+go test ./...
+go vet ./...
+go run ./cmd/samurai-lifecycle -openapi examples/openapi.json
+```
+
+## Decision model
+
+- `SAFE`: no blocking evidence for shutdown.
+- `REVIEW`: evidence exists and migration state needs verification.
+- `BLOCKED`: active consumers, material traffic, unknown traffic, incomplete migration, or unhealthy replacement create shutdown risk.
 
 ## Design
 
@@ -29,22 +37,20 @@ OpenAPI / config
 Consumer observations --> Risk engine
                               |
                               v
-                       SAFE / BLOCKED
+                     SAFE / REVIEW / BLOCKED
 ```
 
-## Repository roadmap
+## Roadmap
 
-1. `schema/` — stable lifecycle data model.
-2. `cmd/` — CLI scanner/reporting.
-3. `pkg/headers/` — RFC 8594/RFC 9745 header generation/parsing.
-4. `pkg/risk/` — explainable risk score.
-5. `examples/` — sample API inventory and consumer data.
-6. GitHub Actions — CI and later policy checks on OpenAPI changes.
+1. Stable lifecycle schema.
+2. Go risk engine and tests.
+3. OpenAPI inventory scanner.
+4. RFC 8594/RFC 9745 header adapters.
+5. Access-log and gateway consumer attribution.
+6. Migration diffing and policy-as-code.
+7. GitHub Action annotations and dashboard.
+8. Enterprise control plane with auditable safe-shutdown evidence.
 
-## Product boundary
+Headers are the interoperability layer; consumer intelligence and safe-shutdown decisions are the product layer.
 
-This is not another middleware-only package. Headers are the interoperability layer; consumer intelligence and safe-shutdown decisions are the product layer.
-
-## Status
-
-MVP scaffold. No production shutdown automation is enabled by default.
+Production shutdown automation remains disabled by default.
