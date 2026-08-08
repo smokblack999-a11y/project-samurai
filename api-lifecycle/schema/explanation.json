@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","additionalProperties":false,"required":["summary","decision","reasons","remediations"],"properties":{"summary":{"type":"string"},"decision":{"enum":["SAFE","REVIEW","BLOCKED"]},"reasons":{"type":"array","items":{"type":"string"}},"remediations":{"type":"array","items":{"type":"string"}}}}
