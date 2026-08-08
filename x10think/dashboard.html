@@ -1,0 +1,5 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>X10THINK Sentinel</title>
+<style>body{font:16px system-ui;background:#0b0e12;color:#e8edf2;max-width:760px;margin:40px auto;padding:20px}button{padding:12px 18px;margin:6px;background:#1b73e8;color:white;border:0;border-radius:8px}pre{background:#111820;padding:16px;border-radius:10px;overflow:auto}</style>
+<h1>X10THINK Sentinel</h1><p>Local infrastructure health and AI diagnostics.</p><button onclick="scan()">AI SCAN</button><button onclick="health()">HEALTH</button><pre id="out">Ready.</pre>
+<script>const out=document.getElementById('out');async function health(){out.textContent=JSON.stringify(await (await fetch('/health')).json(),null,2)}async function scan(){out.textContent=JSON.stringify(await (await fetch('/scan',{method:'POST'})).json(),null,2)}</script>
