@@ -34,6 +34,8 @@ def analyze(text: str) -> dict[str, Any]:
         data = json.loads(raw)
         decision = LeadDecision.model_validate(data)
         return decision.model_dump()
-    except (json.JSONDecodeError, ValidationError, Exception):
-        # Fail closed: the deterministic baseline remains the production decision.
+    except (json.JSONDecodeError, ValidationError):
+        return classify(text)
+    except Exception:
+        # Network/provider failures never block the deterministic path.
         return classify(text)
