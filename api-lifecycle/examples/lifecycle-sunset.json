@@ -1,0 +1,1 @@
+{"endpoint":"/v1/orders","method":"GET","status":"sunset","sunset":"2026-11-11T11:11:11Z","replacement":"/v2/orders","consumer_count":0,"active_consumer_count":0,"traffic_share":0,"unknown_traffic_share":0,"migration_completion":1,"replacement_healthy":true}
