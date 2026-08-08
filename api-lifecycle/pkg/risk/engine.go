@@ -18,7 +18,8 @@ func Evaluate(e lifecycle.Endpoint) lifecycle.RiskResult {
 		reasons = append(reasons, "endpoint is not explicitly marked for sunset")
 		remediations = append(remediations, "mark the endpoint for sunset only after the deprecation process is complete")
 	}
-	if e.Status == lifecycle.StatusSunset && e.Sunset.IsZero() {
+	if e.Status == lifecycle.StatusSunset && e.Sunset == nil {
+		score += 100
 		reasons = append(reasons, "sunset status has no sunset timestamp")
 		remediations = append(remediations, "set an explicit sunset timestamp")
 	}
@@ -55,15 +56,13 @@ func Evaluate(e lifecycle.Endpoint) lifecycle.RiskResult {
 		}
 	}
 
-	if score > 100 {
-		score = 100
-	}
+	if score > 100 { score = 100 }
 
 	decision := lifecycle.DecisionSafe
 	switch {
 	case e.Status != lifecycle.StatusSunset:
 		decision = lifecycle.DecisionBlocked
-	case e.Sunset.IsZero():
+	case e.Sunset == nil:
 		decision = lifecycle.DecisionBlocked
 	case e.ActiveConsumerCount > 0:
 		decision = lifecycle.DecisionBlocked
@@ -76,35 +75,11 @@ func Evaluate(e lifecycle.Endpoint) lifecycle.RiskResult {
 	}
 
 	confidence := 100 - score
-	if e.UnknownTrafficShare > 0.01 {
-		confidence -= 15
-	}
-	if confidence < 0 {
-		confidence = 0
-	}
+	if e.UnknownTrafficShare > 0.01 { confidence -= 15 }
+	if confidence < 0 { confidence = 0 }
 
-	return lifecycle.RiskResult{
-		Decision: decision,
-		Score: score,
-		Confidence: confidence,
-		Reasons: reasons,
-		Remediations: remediations,
-	}
+	return lifecycle.RiskResult{Decision: decision, Score: score, Confidence: confidence, Reasons: reasons, Remediations: remediations}
 }
 
-func clamp01(v float64) float64 {
-	if v < 0 {
-		return 0
-	}
-	if v > 1 {
-		return 1
-	}
-	return v
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
+func clamp01(v float64) float64 { if v < 0 { return 0 }; if v > 1 { return 1 }; return v }
+func min(a, b int) int { if a < b { return a }; return b }
