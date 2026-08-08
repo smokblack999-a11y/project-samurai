@@ -28,7 +28,10 @@ jobs:
         run: go test ./...
       - name: Build CLI
         working-directory: api-lifecycle
-        run: go build ./cmd/samurai-lifecycle
+        run: go build ./cmd/samurai-lifecycle ./cmd/samurai-audit
+      - name: End-to-end audit smoke test
+        working-directory: api-lifecycle
+        run: go run ./cmd/samurai-audit -input examples/access-log.jsonl -endpoint /v1/orders -method GET
       - name: Validate lifecycle JSON
         run: python - <<'PY'
 import json
