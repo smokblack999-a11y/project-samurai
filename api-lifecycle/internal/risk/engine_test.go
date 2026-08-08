@@ -5,20 +5,20 @@ import (
 	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/internal/model"
 )
 
-func TestEvaluateBlocksActiveConsumers(t *testing.T) {
-	r := model.LifecycleRecord{Endpoint:"/v1/orders", Method:"GET", Status:model.StatusDeprecated, ActiveConsumerCount:1, MigrationCompletion:1, ReplacementHealthy:true}
-	got := Evaluate(r)
-	if got.Decision != model.DecisionBlocked { t.Fatalf("expected BLOCKED, got %s", got.Decision) }
+func TestHighRiskDeprecatedAPIIsBlocked(t *testing.T) {
+	r := model.LifecycleRecord{Endpoint:"/v1/orders", Method:"GET", Status:model.StatusDeprecated, ActiveConsumerCount:5, TrafficShare:.318, UnknownTrafficShare:.174, MigrationCompletion:.42, Replacement:"/v2/orders", ReplacementHealthy:true}
+	got := New().Evaluate(r)
+	if got.Decision != model.RiskBlocked { t.Fatalf("expected BLOCKED, got %s", got.Decision) }
 }
 
-func TestEvaluateSafeWhenNoConsumersAndMigrated(t *testing.T) {
-	r := model.LifecycleRecord{Endpoint:"/v1/orders", Method:"GET", Status:model.StatusSunset, MigrationCompletion:1, ReplacementHealthy:true}
-	got := Evaluate(r)
-	if got.Decision != model.DecisionSafe { t.Fatalf("expected SAFE, got %s", got.Decision) }
+func TestActiveAPIIsSafe(t *testing.T) {
+	r := model.LifecycleRecord{Endpoint:"/v3/orders", Method:"GET", Status:model.StatusActive, ActiveConsumerCount:10, TrafficShare:.8}
+	got := New().Evaluate(r)
+	if got.Decision != model.RiskSafe { t.Fatalf("expected SAFE, got %s", got.Decision) }
 }
 
-func TestEvaluateUnknownTrafficRequiresReview(t *testing.T) {
-	r := model.LifecycleRecord{Endpoint:"/v1/orders", Method:"GET", Status:model.StatusDeprecated, UnknownTrafficShare:0.10, MigrationCompletion:1, ReplacementHealthy:true}
-	got := Evaluate(r)
-	if got.Decision != model.DecisionReview { t.Fatalf("expected REVIEW, got %s", got.Decision) }
+func TestUnknownTrafficRequiresReview(t *testing.T) {
+	r := model.LifecycleRecord{Endpoint:"/v1/orders", Method:"GET", Status:model.StatusDeprecated, UnknownTrafficShare:.10, MigrationCompletion:1, ReplacementHealthy:true}
+	got := New().Evaluate(r)
+	if got.Decision != model.RiskReview { t.Fatalf("expected REVIEW, got %s", got.Decision) }
 }
