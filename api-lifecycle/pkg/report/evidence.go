@@ -1,6 +1,8 @@
 package report
 
 import (
+    "crypto/sha256"
+    "encoding/hex"
     "encoding/json"
     "time"
 )
@@ -22,3 +24,10 @@ type Evidence struct {
 }
 
 func Marshal(e Evidence) ([]byte, error) { return json.MarshalIndent(e, "", "  ") }
+
+func Fingerprint(e Evidence) (string, error) {
+    b, err := json.Marshal(e)
+    if err != nil { return "", err }
+    sum := sha256.Sum256(b)
+    return hex.EncodeToString(sum[:]), nil
+}
