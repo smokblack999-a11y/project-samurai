@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+from pathlib import Path
 from urllib.parse import urlparse
 
 from .agent import Agent
+
+
+DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard" / "index.html"
 
 
 class APIHandler(BaseHTTPRequestHandler):
@@ -20,7 +24,16 @@ class APIHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
-        if path in ("/", "/api/status"):
+        if path == "/":
+            if DASHBOARD.exists():
+                body = DASHBOARD.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+        if path == "/api/status":
             state = self.agent.store.read() if self.agent else {}
             self._json(200, {"service": "x10think", "status": "online", "state": state})
             return
