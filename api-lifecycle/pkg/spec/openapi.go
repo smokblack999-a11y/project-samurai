@@ -23,7 +23,12 @@ func Read(r io.Reader) ([]lifecycle.Endpoint, error) {
         methods := []struct{name string; op *Operation}{
             {"GET",item.Get},{"POST",item.Post},{"PUT",item.Put},{"PATCH",item.Patch},{"DELETE",item.Delete},{"HEAD",item.Head},{"OPTIONS",item.Options},
         }
-        for _,m := range methods { if m.op != nil { out=append(out,lifecycle.Endpoint{Endpoint:path,Method:m.name,Deprecated:m.op.Deprecated,OperationID:m.op.OperationID}) } }
+        for _,m := range methods {
+            if m.op == nil { continue }
+            status := lifecycle.StatusActive
+            if m.op.Deprecated { status = lifecycle.StatusDeprecated }
+            out = append(out, lifecycle.Endpoint{Endpoint:path, Method:m.name, Status:status})
+        }
     }
     if len(out)==0{return nil,fmt.Errorf("openapi document contains no operations")}
     return out,nil
