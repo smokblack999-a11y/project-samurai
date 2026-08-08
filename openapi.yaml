@@ -1,18 +1,20 @@
 openapi: 3.1.0
 info:
   title: Telegram LeadOps API
-  version: 0.1.0
-  description: Convert Telegram messages into prioritized lead decisions.
+  version: 0.2.0
+  description: Convert inbound business messages into validated lead decisions.
 servers:
   - url: http://localhost:8000
 paths:
   /health:
     get:
+      operationId: health
       responses:
         '200':
           description: Service health
   /api/v1/analyze/message:
     post:
+      operationId: analyzeMessage
       summary: Analyze one inbound message
       requestBody:
         required: true
@@ -27,6 +29,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LeadDecision'
+        '422':
+          description: Validation error
 components:
   schemas:
     AnalyzeRequest:
@@ -39,23 +43,24 @@ components:
           maxLength: 10000
         language:
           type: string
+          nullable: true
     LeadDecision:
       type: object
       required: [intent, lead_score, urgency, recommended_action, needs, reason]
       properties:
         intent:
           type: string
-          enum: [buying, support, information, spam, other]
+          enum: [buying, information]
         lead_score:
           type: integer
           minimum: 0
           maximum: 100
         urgency:
           type: string
-          enum: [low, medium, high]
+          enum: [high, low]
         recommended_action:
           type: string
-          enum: [auto_reply, human_followup, ignore, escalate]
+          enum: [auto_reply, human_followup]
         needs:
           type: array
           items: {type: string}
