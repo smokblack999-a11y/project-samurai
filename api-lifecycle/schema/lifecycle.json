@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SAMURAI API Lifecycle Record",
+  "type": "object",
+  "required": ["endpoint", "method", "status"],
+  "properties": {
+    "endpoint": {"type": "string", "minLength": 1},
+    "method": {"type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]},
+    "status": {"type": "string", "enum": ["active", "deprecated", "sunset"]},
+    "deprecation": {"type": "string"},
+    "sunset": {"type": "string", "format": "date-time"},
+    "replacement": {"type": "string"},
+    "consumer_count": {"type": "integer", "minimum": 0},
+    "active_consumer_count": {"type": "integer", "minimum": 0},
+    "traffic_share": {"type": "number", "minimum": 0, "maximum": 1},
+    "unknown_traffic_share": {"type": "number", "minimum": 0, "maximum": 1},
+    "migration_completion": {"type": "number", "minimum": 0, "maximum": 1},
+    "replacement_healthy": {"type": "boolean"}
+  },
+  "additionalProperties": false
+}
