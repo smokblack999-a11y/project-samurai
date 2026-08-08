@@ -1,0 +1,23 @@
+name: api-lifecycle-go
+
+on:
+  push:
+    paths:
+      - 'api-lifecycle/**'
+  pull_request:
+    paths:
+      - 'api-lifecycle/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-lifecycle
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: go test ./...
+      - run: go vet ./...
