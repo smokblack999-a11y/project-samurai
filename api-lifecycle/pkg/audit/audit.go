@@ -23,26 +23,26 @@ type Input struct {
 func Run(in Input) report.Evidence {
     a := consumer.Attribute(in.Endpoint, in.Records)
     reasons := make([]string, 0, 4)
-    decision := "SAFE"
+    decision := string(lifecycle.DecisionSafe)
 
     if a.UnknownTrafficShare > in.Policy.MaxUnknownTrafficShare {
-        decision = "BLOCKED"
+        decision = string(lifecycle.DecisionBlocked)
         reasons = append(reasons, "unknown traffic exceeds policy threshold")
     }
     if in.Policy.RequireReplacement && strings.TrimSpace(in.Replacement) == "" {
-        decision = "BLOCKED"
+        decision = string(lifecycle.DecisionBlocked)
         reasons = append(reasons, "replacement endpoint is missing")
     }
     if in.Policy.RequireHealthyReplacement && !in.ReplacementHealthy {
-        decision = "BLOCKED"
+        decision = string(lifecycle.DecisionBlocked)
         reasons = append(reasons, "replacement endpoint is not healthy")
     }
     if in.MigrationCompletion < 1 {
-        if decision != "BLOCKED" { decision = "REVIEW" }
+        if decision != string(lifecycle.DecisionBlocked) { decision = string(lifecycle.DecisionReview) }
         reasons = append(reasons, "consumer migration is incomplete")
     }
-    if a.ActiveConsumerCount > 0 && decision == "SAFE" {
-        decision = "REVIEW"
+    if a.ActiveConsumerCount > 0 && decision == string(lifecycle.DecisionSafe) {
+        decision = string(lifecycle.DecisionReview)
         reasons = append(reasons, "active consumers remain observed")
     }
 
