@@ -22,9 +22,6 @@ def execute_approved(approval_id: str) -> dict:
         AUDIT.record("execution_blocked", approval_id=approval_id, action=item["action"])
         raise ValueError("action_forbidden")
 
-    if not mark_executed(approval_id):
-        raise ValueError("execution_state_conflict")
-
     if item["action"] == "health":
         from core import health
         result = health()
@@ -34,5 +31,7 @@ def execute_approved(approval_id: str) -> dict:
     else:
         raise ValueError("executor_not_implemented")
 
+    if not mark_executed(approval_id):
+        raise ValueError("execution_state_conflict")
     AUDIT.record("execution_completed", approval_id=approval_id, action=item["action"], fingerprint=item["fingerprint"])
     return {"approval_id": approval_id, "action": item["action"], "result": result}
