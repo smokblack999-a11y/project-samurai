@@ -1,0 +1,43 @@
+name: api-lifecycle
+
+on:
+  push:
+    paths:
+      - 'api-lifecycle/**'
+  pull_request:
+    paths:
+      - 'api-lifecycle/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: api-lifecycle/go.mod
+      - name: Format check
+        working-directory: api-lifecycle
+        run: test -z "$(gofmt -l .)"
+      - name: Vet
+        working-directory: api-lifecycle
+        run: go vet ./...
+      - name: Test Go core
+        working-directory: api-lifecycle
+        run: go test ./...
+      - name: Build CLI
+        working-directory: api-lifecycle
+        run: go build ./cmd/samurai-lifecycle
+      - name: Validate lifecycle JSON
+        run: python - <<'PY'
+import json
+from pathlib import Path
+schema = json.loads(Path('api-lifecycle/schema/lifecycle.json').read_text())
+sample = json.loads(Path('api-lifecycle/examples/sample-lifecycle.json').read_text())
+required = set(schema['required'])
+missing = required - sample.keys()
+if missing:
+    raise SystemExit(f'missing required fields: {sorted(missing)}')
+print('lifecycle sample: OK')
+PY

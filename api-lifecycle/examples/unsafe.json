@@ -1,0 +1,12 @@
+{
+  "endpoint": "/v1/payments",
+  "method": "POST",
+  "status": "deprecated",
+  "consumer_count": 17,
+  "active_consumer_count": 5,
+  "traffic_share": 0.318,
+  "unknown_traffic_share": 0.174,
+  "migration_completion": 0.42,
+  "replacement": "/v2/payments",
+  "replacement_healthy": true
+}
