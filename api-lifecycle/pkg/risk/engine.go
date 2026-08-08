@@ -7,12 +7,21 @@ import (
 	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/pkg/lifecycle"
 )
 
-// Evaluate is deliberately deterministic. AI may explain or enrich a decision later,
-// but the shutdown gate must remain reproducible and auditable.
+// Evaluate is deterministic. AI may explain or enrich a decision later,
+// but the shutdown gate remains reproducible and auditable.
 func Evaluate(e lifecycle.Endpoint) lifecycle.RiskResult {
-	var score int
-	var reasons []string
-	var remediations []string
+	score := 0
+	reasons := make([]string, 0, 8)
+	remediations := make([]string, 0, 8)
+
+	if e.Status != lifecycle.StatusSunset {
+		reasons = append(reasons, "endpoint is not explicitly marked for sunset")
+		remediations = append(remediations, "mark the endpoint for sunset only after the deprecation process is complete")
+	}
+	if e.Status == lifecycle.StatusSunset && e.Sunset.IsZero() {
+		reasons = append(reasons, "sunset status has no sunset timestamp")
+		remediations = append(remediations, "set an explicit sunset timestamp")
+	}
 
 	if e.ActiveConsumerCount > 0 {
 		score += min(35, e.ActiveConsumerCount*7)
@@ -31,16 +40,19 @@ func Evaluate(e lifecycle.Endpoint) lifecycle.RiskResult {
 		reasons = append(reasons, fmt.Sprintf("%.1f%% of traffic is from unknown consumers", e.UnknownTrafficShare*100))
 		remediations = append(remediations, "identify unknown consumers before shutdown")
 	}
-	if e.MigrationCompletion < 1 {
-		points := int(math.Ceil((1-e.MigrationCompletion) * 30))
-		score += min(30, points)
-		reasons = append(reasons, fmt.Sprintf("migration is %.0f%% complete", e.MigrationCompletion*100))
-		remediations = append(remediations, "complete or explicitly waive migration")
-	}
-	if e.Replacement != "" && !e.ReplacementHealthy {
-		score += 25
-		reasons = append(reasons, "replacement endpoint is not healthy")
-		remediations = append(remediations, "restore replacement health before sunset")
+
+	if e.Replacement != "" {
+		if e.MigrationCompletion < 1 {
+			points := int(math.Ceil((1 - clamp01(e.MigrationCompletion)) * 30))
+			score += min(30, points)
+			reasons = append(reasons, fmt.Sprintf("migration to %s is %.0f%% complete", e.Replacement, clamp01(e.MigrationCompletion)*100))
+			remediations = append(remediations, "complete or explicitly waive migration")
+		}
+		if !e.ReplacementHealthy {
+			score += 25
+			reasons = append(reasons, "replacement endpoint is not healthy")
+			remediations = append(remediations, "restore replacement health before sunset")
+		}
 	}
 
 	if score > 100 {
@@ -51,8 +63,13 @@ func Evaluate(e lifecycle.Endpoint) lifecycle.RiskResult {
 	switch {
 	case e.Status != lifecycle.StatusSunset:
 		decision = lifecycle.DecisionBlocked
-		reasons = append(reasons, "endpoint is not explicitly marked for sunset")
-	case e.ActiveConsumerCount > 0 || e.UnknownTrafficShare > 0.01 || !e.ReplacementHealthy:
+	case e.Sunset.IsZero():
+		decision = lifecycle.DecisionBlocked
+	case e.ActiveConsumerCount > 0:
+		decision = lifecycle.DecisionBlocked
+	case e.UnknownTrafficShare > 0.01:
+		decision = lifecycle.DecisionBlocked
+	case e.Replacement != "" && !e.ReplacementHealthy:
 		decision = lifecycle.DecisionBlocked
 	case score >= 20:
 		decision = lifecycle.DecisionReview
@@ -67,7 +84,7 @@ func Evaluate(e lifecycle.Endpoint) lifecycle.RiskResult {
 	}
 
 	return lifecycle.RiskResult{
-		Decision: lifecycle.Decision(decision),
+		Decision: decision,
 		Score: score,
 		Confidence: confidence,
 		Reasons: reasons,
@@ -75,7 +92,19 @@ func Evaluate(e lifecycle.Endpoint) lifecycle.RiskResult {
 	}
 }
 
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
 func min(a, b int) int {
-	if a < b { return a }
+	if a < b {
+		return a
+	}
 	return b
 }
