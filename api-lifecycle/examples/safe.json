@@ -1,0 +1,12 @@
+{
+  "endpoint": "/v1/archive",
+  "method": "GET",
+  "status": "deprecated",
+  "consumer_count": 0,
+  "active_consumer_count": 0,
+  "traffic_share": 0,
+  "unknown_traffic_share": 0,
+  "migration_completion": 1,
+  "replacement": "/v2/archive",
+  "replacement_healthy": true
+}
