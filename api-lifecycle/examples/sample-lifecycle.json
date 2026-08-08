@@ -1,0 +1,14 @@
+{
+  "endpoint": "/v1/orders",
+  "method": "GET",
+  "status": "deprecated",
+  "deprecation": "2026-08-01T00:00:00Z",
+  "sunset": "2026-12-01T00:00:00Z",
+  "replacement": "/v2/orders",
+  "consumer_count": 17,
+  "active_consumer_count": 5,
+  "traffic_share": 0.318,
+  "unknown_traffic_share": 0.174,
+  "migration_completion": 0.42,
+  "replacement_healthy": true
+}
