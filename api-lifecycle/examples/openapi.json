@@ -1,0 +1,1 @@
+{"openapi":"3.0.3","info":{"title":"SAMURAI demo API","version":"1.0.0"},"paths":{"/v1/orders":{"get":{}},"/v1/customers":{"get":{},"post":{}},"/v2/orders":{"get":{}}}}
