@@ -1,31 +1,21 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
-
-	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/pkg/lifecycle"
-	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/pkg/risk"
+	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/internal/parser"
+	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/internal/risk"
+	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/internal/report"
 )
 
 func main() {
-	input := flag.String("input", "", "path to a lifecycle JSON record")
+	input := flag.String("openapi", "", "OpenAPI JSON file")
 	flag.Parse()
-	if *input == "" {
-		fmt.Fprintln(os.Stderr, "usage: samurai-lifecycle -input endpoint.json")
-		os.Exit(2)
-	}
-	data, err := os.ReadFile(*input)
-	if err != nil { fatal(err) }
-	var endpoint lifecycle.Endpoint
-	if err := json.Unmarshal(data, &endpoint); err != nil { fatal(err) }
-	if err := endpoint.Validate(); err != nil { fatal(err) }
-	result := risk.Evaluate(endpoint)
-	out, err := json.MarshalIndent(result, "", "  ")
-	if err != nil { fatal(err) }
-	fmt.Println(string(out))
+	if *input == "" { fmt.Fprintln(os.Stderr, "usage: samurai-lifecycle -openapi openapi.json"); os.Exit(2) }
+	records, err := parser.LoadJSON(*input); if err != nil { fatal(err) }
+	engine := risk.New()
+	for _, r := range records { report.Print(r, engine.Evaluate(r)) }
 }
 
 func fatal(err error) { fmt.Fprintln(os.Stderr, "error:", err); os.Exit(1) }
