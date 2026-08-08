@@ -1,0 +1,9 @@
+{
+  "name": "X10THINK Sentinel",
+  "version": "0.1.0",
+  "interval_seconds": 15,
+  "ai_enabled": true,
+  "ai_model": "gpt-5-mini",
+  "api_host": "127.0.0.1",
+  "api_port": 7010
+}
