@@ -1,22 +1,30 @@
 # Risk engine contract
 
-The first risk engine must be deterministic and explainable. Do not use an LLM for the core decision.
+The risk engine is deterministic, explainable, and fail-closed.
 
 Inputs:
 
-- traffic share
-- unknown traffic share
+- lifecycle status and sunset timestamp
 - active consumer count
+- observed traffic share
+- unknown traffic share
 - migration completion
 - replacement health
-- time until sunset
 
 Outputs:
 
-- `SAFE`
-- `REVIEW`
-- `BLOCKED`
+- `SAFE` — no blocking evidence remains
+- `REVIEW` — human/operator review is required
+- `BLOCKED` — shutdown is unsafe under current evidence
 
-A `SAFE` result must include evidence and thresholds. The system must never infer that an API is safe to disable solely because its advertised Sunset date has arrived; RFC 8594 treats Sunset as a hint rather than a guarantee.
+Hard gates always override the numeric score:
 
-Later versions can add adapters for gateway/APM/log sources and an AI explanation layer, but the underlying decision remains reproducible.
+1. endpoint must be explicitly marked `sunset`
+2. sunset must have an explicit timestamp
+3. active consumers must be zero
+4. unknown traffic must be at or below the policy threshold
+5. replacement, when supplied, must be healthy
+
+`SAFE` is never inferred merely because the advertised Sunset time has arrived. RFC 8594 defines Sunset as a hint, not a guarantee.
+
+The score is a prioritization signal, not permission to shut down an endpoint. AI may later explain evidence or propose migration work, but it must not replace the deterministic shutdown gate.
