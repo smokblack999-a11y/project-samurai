@@ -47,3 +47,13 @@ if missing:
     raise SystemExit(f'missing required fields: {sorted(missing)}')
 print('lifecycle sample: OK')
 PY
+      - name: Validate risk result schema
+        run: python - <<'PY'
+import json
+from pathlib import Path
+schema = json.loads(Path('api-lifecycle/schema/risk-result.json').read_text())
+required = set(schema['required'])
+if required != {'decision','score','confidence','reasons','remediations'}:
+    raise SystemExit('risk-result schema contract changed unexpectedly')
+print('risk result schema: OK')
+PY
