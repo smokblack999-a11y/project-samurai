@@ -13,6 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: api-lifecycle/go.mod
+      - name: Test Go core
+        working-directory: api-lifecycle
+        run: go test ./...
+      - name: Build CLI
+        working-directory: api-lifecycle
+        run: go build ./cmd/samurai-lifecycle
       - name: Validate lifecycle JSON
         run: python - <<'PY'
 import json
