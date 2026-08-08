@@ -1,0 +1,39 @@
+[
+  {
+    "endpoint": "/v1/orders",
+    "method": "GET",
+    "status": "sunset",
+    "sunset": "2026-12-01T00:00:00Z",
+    "replacement": "/v2/orders",
+    "consumer_count": 5,
+    "active_consumer_count": 0,
+    "traffic_share": 0.0,
+    "unknown_traffic_share": 0.0,
+    "migration_completion": 1.0,
+    "replacement_healthy": true
+  },
+  {
+    "endpoint": "/v1/payments",
+    "method": "POST",
+    "status": "sunset",
+    "sunset": "2026-12-01T00:00:00Z",
+    "replacement": "/v2/payments",
+    "consumer_count": 8,
+    "active_consumer_count": 2,
+    "traffic_share": 0.21,
+    "unknown_traffic_share": 0.0,
+    "migration_completion": 0.75,
+    "replacement_healthy": true
+  },
+  {
+    "endpoint": "/v1/legacy",
+    "method": "GET",
+    "status": "deprecated",
+    "consumer_count": 2,
+    "active_consumer_count": 0,
+    "traffic_share": 0.02,
+    "unknown_traffic_share": 0.12,
+    "migration_completion": 1.0,
+    "replacement_healthy": true
+  }
+]
