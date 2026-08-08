@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/internal/model"
-	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/internal/risk"
+	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/pkg/lifecycle"
+	"github.com/smokblack999-a11y/project-samurai/api-lifecycle/pkg/risk"
 )
 
 func main() {
@@ -15,10 +15,9 @@ func main() {
 	flag.Parse()
 	if *input == "" { fmt.Fprintln(os.Stderr, "usage: samurai-lifecycle -input endpoint.json"); os.Exit(2) }
 	data, err := os.ReadFile(*input); if err != nil { fatal(err) }
-	var endpoint model.LifecycleRecord
+	var endpoint lifecycle.Endpoint
 	if err := json.Unmarshal(data, &endpoint); err != nil { fatal(err) }
-	if err := endpoint.Validate(); err != nil { fatal(err) }
-	result := risk.New().Evaluate(endpoint)
+	result := risk.Evaluate(endpoint)
 	out, err := json.MarshalIndent(result, "", "  "); if err != nil { fatal(err) }
 	fmt.Println(string(out))
 }
