@@ -1,0 +1,8 @@
+{
+  "app_name": "X10THINK Sentinel",
+  "version": "0.1.0",
+  "host": "127.0.0.1",
+  "port": 7010,
+  "interval": 10,
+  "data_dir": ".x10think"
+}

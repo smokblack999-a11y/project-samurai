@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>X10THINK Sentinel</title>
+<style>body{font:16px system-ui;background:#0d1117;color:#e6edf3;max-width:760px;margin:40px auto;padding:0 20px}main{border:1px solid #30363d;border-radius:14px;padding:24px}h1{margin-top:0}.score{font-size:48px;font-weight:700}pre{white-space:pre-wrap;background:#161b22;padding:16px;border-radius:10px}</style>
+<main><h1>X10THINK Sentinel</h1><div>Infrastructure health</div><div id="score" class="score">—</div><pre id="state">Loading…</pre></main>
+<script>
+async function refresh(){try{const r=await fetch('/api/status');const x=await r.json();const s=x.state||{};document.querySelector('#score').textContent=(s.score??'—')+'/100';document.querySelector('#state').textContent=JSON.stringify(s,null,2)}catch(e){document.querySelector('#state').textContent='API unavailable: '+e.message}}
+refresh();setInterval(refresh,5000);
+</script></html>
