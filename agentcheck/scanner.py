@@ -77,6 +77,7 @@ def scan_repo(path: str) -> dict:
 def _scan_file(root: Path, file: Path, text: str) -> list[Finding]:
     out: list[Finding] = []
     rel = str(file.relative_to(root))
+    agent_context = bool(re.search(r"(?:agent|llm|model|mcp|tool_call|function_call|execute_tool|call_tool)", text, re.I))
 
     def add(rule, title, severity, confidence, evidence, impact, remediation, verification, line=None):
         out.append(Finding(rule, title, severity, confidence, rel, line, evidence, impact, remediation, verification))
@@ -95,12 +96,16 @@ def _scan_file(root: Path, file: Path, text: str) -> list[Finding]:
                 "Remove and rotate the secret; use a secret manager or environment injection.",
                 "Re-run AgentCheck and confirm no credential-like token remains.", _line(text, m))
 
-    if re.search(r"(?:subprocess\.|os\.system\(|shell\s*=\s*True|\bexec\(|\beval\()", text, re.I):
+    # Only elevate execution primitives when they are part of an agent/tool context.
+    # Generic build/install scripts legitimately use subprocess and must not be treated
+    # as agent execution risks by default.
+    execution_match = re.search(r"(?:subprocess\.|os\.system\(|shell\s*=\s*True|\bexec\(|\beval\()", text, re.I)
+    if execution_match and agent_context:
         add("TOOL-001", "Potential unrestricted execution surface", "high", 88,
-            "shell/process/eval primitive detected",
+            "agent/tool context contains a shell/process/eval primitive",
             "An agent connected to unrestricted execution can cross a high-impact side-effect boundary.",
             "Expose only explicit tools with allow-listed operations, validated arguments and least privilege.",
-            "Add a negative test proving forbidden commands are rejected.")
+            "Add a negative test proving forbidden commands are rejected.", _line(text, execution_match))
 
     if re.search(r"\b(?:function_call|tool_call|tools|mcp|execute_tool|call_tool)\b", text, re.I):
         if not re.search(r"(?:allowlist|allow_list|approved_tools|allowed_tools|permission|authorize|authorization)", text, re.I):
@@ -152,7 +157,7 @@ def _scan_file(root: Path, file: Path, text: str) -> list[Finding]:
                     "Add a fixture containing instruction-like external content and assert it cannot change tool policy.")
 
     if re.search(r"(?:requests\.|httpx\.|urllib|fetch\(|axios|rss|feedparser|webbrowser)", text, re.I):
-        if re.search(r"(?:prompt|agent|llm|model|tool)", text, re.I):
+        if agent_context:
             add("CONTENT-001", "External content is part of an agent data path", "medium", 68,
                 "network/content retrieval and agent/model/tool signals detected",
                 "External data should be considered untrusted input to agent reasoning.",
@@ -160,7 +165,7 @@ def _scan_file(root: Path, file: Path, text: str) -> list[Finding]:
                 "Test with adversarial external content and verify policy remains unchanged.")
 
     if re.search(r"(?:logging|logger|structlog|loguru|print\(|console\.log)", text, re.I) is None:
-        if re.search(r"(?:agent|tool|function|mcp|model)", text, re.I):
+        if agent_context:
             add("AUDIT-001", "No obvious audit logging signal", "medium", 70,
                 "agent/tool/model code detected without logging signal",
                 "Without traceable events, incidents and regressions are difficult to investigate.",
@@ -182,7 +187,7 @@ def _scan_file(root: Path, file: Path, text: str) -> list[Finding]:
                 "Set explicit timeouts/deadlines and bounded retry/backoff policies.",
                 "Simulate a slow dependency and verify the call terminates within the configured deadline.")
 
-    if re.search(r"(?:agent|llm|model|openai|anthropic)", text, re.I):
+    if agent_context:
         if not re.search(r"(?:eval|evaluation|grader|assert.*response|test.*agent|golden|benchmark)", text, re.I):
             add("EVAL-001", "No obvious agent evaluation harness", "medium", 62,
                 "agent/model usage found without evaluation/test signal",
@@ -190,7 +195,6 @@ def _scan_file(root: Path, file: Path, text: str) -> list[Finding]:
                 "Create deterministic evaluation cases for critical tasks and failure modes.",
                 "Run the evaluation suite and require a minimum pass threshold.")
 
-    if re.search(r"(?:agent|llm|model|tool|mcp)", text, re.I):
         if not re.search(r"(?:pytest|unittest|vitest|jest|test_.*agent|agent.*test)", text, re.I):
             add("REGRESSION-001", "Agent regression tests are not evident", "medium", 64,
                 "agent/tool/model code found without test-framework or agent-test signal",
@@ -198,7 +202,6 @@ def _scan_file(root: Path, file: Path, text: str) -> list[Finding]:
                 "Add golden scenarios covering success, refusal, tool selection and side effects.",
                 "Change a controlled prompt/tool dependency and require the regression suite to detect it.")
 
-    if re.search(r"(?:agent|llm|model|tool|mcp)", text, re.I):
         if not re.search(r"(?:trace|tracing|telemetry|opentelemetry|metrics|span|observability)", text, re.I):
             add("OBS-001", "Runtime observability is not evident", "low", 60,
                 "agent/tool/model code found without tracing or telemetry signal",
