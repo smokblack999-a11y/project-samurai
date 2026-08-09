@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/smokblack999-a11y/project-samurai/internal/api"
 	"github.com/smokblack999-a11y/project-samurai/internal/config"
+	httpx "github.com/smokblack999-a11y/project-samurai/internal/httpx"
 	"github.com/smokblack999-a11y/project-samurai/internal/system"
 )
 
@@ -16,11 +18,21 @@ func main() {
 	cfg := config.Load()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/system/status", statusHandler(cfg))
+	mux.HandleFunc("/api/leads", (api.LeadHandler{}).Create)
 	mux.HandleFunc("/health", healthHandler)
 
 	addr := cfg.Addr
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           httpx.Security(mux),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
 	log.Printf("samurai-telegram-sales listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	log.Fatal(server.ListenAndServe())
 }
 
 func statusHandler(cfg config.Config) http.HandlerFunc {
