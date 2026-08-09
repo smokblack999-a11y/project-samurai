@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Samurai API Lifecycle Remediation Bundle",
+  "type": "object",
+  "required": ["schema_version", "evidence", "evidence_fingerprint", "priority", "actions"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "evidence": {"type": "object"},
+    "evidence_fingerprint": {"type": "string", "minLength": 64, "maxLength": 64},
+    "priority": {"enum": ["normal", "high", "critical"]},
+    "actions": {"type": "array", "items": {"type": "object", "required": ["order", "action", "why"], "properties": {"order": {"type": "integer", "minimum": 1}, "action": {"type": "string", "minLength": 1}, "why": {"type": "string", "minLength": 1}}}}
+  }
+}
