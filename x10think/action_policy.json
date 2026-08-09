@@ -1,0 +1,8 @@
+{
+  "health": {"class": "read", "approval": false},
+  "disk_report": {"class": "read", "approval": false},
+  "write_report": {"class": "safe_write", "approval": true},
+  "restart_service": {"class": "sensitive", "approval": true},
+  "execute_shell": {"class": "forbidden", "approval": true},
+  "delete_files": {"class": "forbidden", "approval": true}
+}
