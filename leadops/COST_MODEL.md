@@ -1,4 +1,4 @@
-# Unit economics
+# AI Unit Economics
 
 Track per analyzed message:
 
@@ -8,14 +8,14 @@ Track per analyzed message:
 - estimated API cost
 - latency
 - decision outcome
+- fallback vs AI decision
 
-Commercial rule: pricing must be based on observed message volume and gross-margin target, not guessed token economics.
+Core metrics:
 
-For the first pilot, record 100 representative messages and calculate:
+`AI cost / message = total model cost / successful AI analyses`
 
-`AI cost / message`
-`AI cost / qualified lead`
-`monthly AI cost / customer`
-`gross margin at proposed price`
+`AI cost / qualified lead = total model cost / qualified leads`
 
-Do not claim a margin until actual provider usage is measured.
+`gross margin = (customer revenue - variable AI/infrastructure cost) / customer revenue`
+
+For the first pilot, collect 100 representative messages before locking final pricing. Pricing is a hypothesis until actual provider usage and customer willingness to pay are measured.
