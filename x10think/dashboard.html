@@ -1,5 +1,25 @@
 <!doctype html>
-<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>X10THINK Sentinel</title>
-<style>body{font:16px system-ui;background:#0b0e12;color:#e8edf2;max-width:760px;margin:40px auto;padding:20px}button{padding:12px 18px;margin:6px;background:#1b73e8;color:white;border:0;border-radius:8px}pre{background:#111820;padding:16px;border-radius:10px;overflow:auto}</style>
-<h1>X10THINK Sentinel</h1><p>Local infrastructure health and AI diagnostics.</p><button onclick="scan()">AI SCAN</button><button onclick="health()">HEALTH</button><pre id="out">Ready.</pre>
-<script>const out=document.getElementById('out');async function health(){out.textContent=JSON.stringify(await (await fetch('/health')).json(),null,2)}async function scan(){out.textContent=JSON.stringify(await (await fetch('/scan',{method:'POST'})).json(),null,2)}</script>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>X10THINK Sentinel</title>
+<style>
+body{font:16px system-ui;background:#0b0e12;color:#e8edf2;max-width:900px;margin:32px auto;padding:20px}
+button{padding:11px 16px;margin:4px;background:#1b73e8;color:white;border:0;border-radius:8px;cursor:pointer}
+button:disabled{opacity:.5;cursor:wait}pre{background:#111820;padding:16px;border-radius:10px;overflow:auto;min-height:180px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.card{background:#111820;border-radius:10px;padding:14px}.value{font-size:24px;font-weight:700}
+</style>
+</head>
+<body>
+<h1>X10THINK Sentinel</h1><p>Local infrastructure health and guarded AI diagnostics.</p>
+<div class="grid"><div class="card">Health<div id="score" class="value">—</div></div><div class="card">AI provider<div id="provider" class="value">—</div></div><div class="card">Uptime<div id="uptime" class="value">—</div></div></div>
+<p><button id="scanBtn" onclick="scan()">AI SCAN</button><button onclick="refresh()">REFRESH</button></p>
+<pre id="out">Connecting…</pre>
+<script>
+const out=document.getElementById('out'); const scanBtn=document.getElementById('scanBtn');
+async function getJSON(url, options){const r=await fetch(url,options);if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);return r.json()}
+async function refresh(){try{const data=await getJSON('/system/status');document.getElementById('score').textContent=data.health.score;document.getElementById('provider').textContent=data.ai.provider_mode;document.getElementById('uptime').textContent=Math.round(data.health.uptime_seconds)+'s';out.textContent=JSON.stringify(data,null,2)}catch(e){out.textContent='Status error: '+e.message}}
+async function scan(){scanBtn.disabled=true;out.textContent='Scanning…';try{out.textContent=JSON.stringify(await getJSON('/scan',{method:'POST'}),null,2);await refresh()}catch(e){out.textContent='Scan error: '+e.message}finally{scanBtn.disabled=false}}
+refresh();setInterval(refresh,15000);
+</script>
+</body></html>
