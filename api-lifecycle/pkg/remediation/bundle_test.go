@@ -1,6 +1,24 @@
 package remediation
 
-import "testing"
+import (
+    "testing"
+    "github.com/smokblack999-a11y/project-samurai/api-lifecycle/pkg/report"
+)
+
+func testEvidence(decision string, reasons []string) report.Evidence {
+    return report.Evidence{
+        Endpoint: "/v1/orders",
+        Method: "GET",
+        ConsumerCount: 3,
+        ActiveConsumerCount: 2,
+        UnknownTrafficShare: 0.4,
+        MigrationCompletion: 0.5,
+        Replacement: "",
+        ReplacementHealthy: false,
+        Decision: decision,
+        Reasons: reasons,
+    }
+}
 
 func TestBuildBlockedBundle(t *testing.T) {
     e := testEvidence("BLOCKED", []string{
