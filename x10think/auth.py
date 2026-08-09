@@ -29,3 +29,7 @@ def viewer_role(authorization: str | None = Header(default=None)) -> str:
 
 def operator_role(authorization: str | None = Header(default=None)) -> str:
     return require_role(authorization, "operator")
+
+
+def admin_role(authorization: str | None = Header(default=None)) -> str:
+    return require_role(authorization, "admin")
