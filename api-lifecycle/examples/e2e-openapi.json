@@ -1,0 +1,1 @@
+{"openapi":"3.0.3","info":{"title":"Samurai E2E Fixture","version":"1.0.0"},"paths":{"/v1/orders":{"get":{"operationId":"listOrders","deprecated":true}}}}
