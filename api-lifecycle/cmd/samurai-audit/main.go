@@ -19,6 +19,8 @@ func main() {
     replacement := flag.String("replacement", "/v2/orders", "replacement endpoint")
     healthy := flag.Bool("replacement-healthy", true, "replacement health status")
     migration := flag.Float64("migration", 1, "migration completion 0..1")
+    format := flag.String("format", "json", "output format: json|html")
+    output := flag.String("output", "", "output file; stdout when empty")
     flag.Parse()
 
     f, err := os.Open(*input)
@@ -35,9 +37,28 @@ func main() {
         MigrationCompletion: *migration,
         Policy: risk.DefaultPolicy,
     })
-    out, err := report.Marshal(evidence)
+
+    var writer = os.Stdout
+    if *output != "" {
+        writer, err = os.Create(*output)
+        if err != nil { fatal(err) }
+        defer writer.Close()
+    }
+
+    switch *format {
+    case "json":
+        out, err := report.Marshal(evidence)
+        if err != nil { fatal(err) }
+        if _, err = writer.Write(append(out, '\n')); err != nil { fatal(err) }
+    case "html":
+        if err := report.RenderHTML(writer, evidence); err != nil { fatal(err) }
+    default:
+        fatal(fmt.Errorf("unsupported format %q; use json or html", *format))
+    }
+
+    fingerprint, err := report.Fingerprint(evidence)
     if err != nil { fatal(err) }
-    fmt.Println(string(out))
+    fmt.Fprintf(os.Stderr, "audit decision=%s fingerprint=%s\n", evidence.Decision, fingerprint)
 }
 
 func fatal(err error) { fmt.Fprintln(os.Stderr, "audit error:", err); os.Exit(1) }
