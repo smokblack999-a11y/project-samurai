@@ -26,12 +26,30 @@ jobs:
       - name: Test Go core
         working-directory: api-lifecycle
         run: go test ./...
-      - name: Build lifecycle and inventory CLIs
+      - name: Build CLIs
         working-directory: api-lifecycle
-        run: go build ./cmd/samurai-lifecycle ./cmd/samurai-audit ./cmd/samurai-inventory
+        run: go build ./cmd/samurai-lifecycle ./cmd/samurai-audit ./cmd/samurai-inventory ./cmd/samurai-e2e
       - name: End-to-end audit smoke test
         working-directory: api-lifecycle
-        run: go run ./cmd/samurai-audit -input examples/access-log.jsonl -endpoint /v1/orders -method GET
+        run: |
+          go run ./cmd/samurai-e2e \
+            -openapi examples/e2e-openapi.json \
+            -logs examples/e2e-access-log.jsonl \
+            -endpoint /v1/orders \
+            -method GET \
+            -out /tmp/evidence.json > /tmp/report.html
+          test -s /tmp/evidence.json
+          test -s /tmp/report.html
+          python - <<'PY'
+import json
+p='/tmp/evidence.json'
+e=json.load(open(p))
+assert e['endpoint']=='/v1/orders'
+assert e['method']=='GET'
+assert e['decision'] in {'SAFE','REVIEW','BLOCKED'}
+assert 'reasons' in e
+print('e2e evidence: OK', e['decision'])
+PY
       - name: OpenAPI inventory smoke test
         working-directory: api-lifecycle
         run: test "$(go run ./cmd/samurai-inventory -openapi examples/openapi.json | python -c 'import json,sys; print(len(json.load(sys.stdin)))')" -eq 4
