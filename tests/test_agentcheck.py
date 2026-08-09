@@ -1,12 +1,29 @@
 from agentcheck.scanner import readiness_score, scan_repo
 
 
-def test_high_finding_reduces_score(tmp_path):
+def test_agent_execution_surface_reduces_score(tmp_path):
     p = tmp_path / "agent.py"
-    p.write_text("import subprocess\nsubprocess.run('echo x', shell=True)\n", encoding="utf-8")
+    p.write_text(
+        "agent = True\n"
+        "tool = True\n"
+        "import subprocess\n"
+        "subprocess.run('echo x', shell=True)\n",
+        encoding="utf-8",
+    )
     result = scan_repo(str(tmp_path))
     assert any(f["rule_id"] == "TOOL-001" for f in result["findings"])
     assert result["score"] < 100
+
+
+def test_generic_installer_subprocess_is_not_agent_execution_finding(tmp_path):
+    p = tmp_path / "installer.py"
+    p.write_text(
+        "import subprocess\n"
+        "subprocess.run(['uv', 'tool', 'install', 'example'])\n",
+        encoding="utf-8",
+    )
+    result = scan_repo(str(tmp_path))
+    assert not any(f["rule_id"] == "TOOL-001" for f in result["findings"])
 
 
 def test_secret_is_critical(tmp_path):
