@@ -21,6 +21,7 @@ def scan_repo(path: str) -> dict:
 
     files = list(_files(root))
     text = "\n".join(_safe_read(p) for p in files)
+    rel_parts = [p.relative_to(root).parts for p in files]
     return {
         "path": str(root),
         "file_count": len(files),
@@ -29,7 +30,7 @@ def scan_repo(path: str) -> dict:
         "has_requirements": (root / "requirements.txt").exists(),
         "has_package_json": (root / "package.json").exists(),
         "has_tests": any("test" in p.name.lower() or "tests" in p.parts for p in files),
-        "has_ci": any(p.parts[-2:] == (".github", "workflows") for p in files if len(p.parts) >= 2),
+        "has_ci": any(len(parts) >= 3 and parts[0] == ".github" and parts[1] == "workflows" for parts in rel_parts),
         "tool_mentions": _count_patterns(text, ["tool_call", "function_call", "tools", "mcp", "function"]),
         "external_content_mentions": _count_patterns(text, ["httpx", "requests", "fetch(", "webhook", "rss", "url"]),
         "approval_mentions": _count_patterns(text, ["approval", "approve", "human", "confirm"]),
