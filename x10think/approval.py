@@ -31,6 +31,8 @@ def create(action: str, payload: dict | None = None, requested_by: str = "assist
         "status": "pending" if decision.requires_approval else "approved",
         "created_at": created,
         "expires_at": created + approval_ttl(),
+        "execution_id": None,
+        "execution_result": None,
     }
     _APPROVALS[approval_id] = item
     AUDIT.record("approval_created", approval_id=approval_id, action=action, requested_by=requested_by, fingerprint=item["fingerprint"])
@@ -63,12 +65,14 @@ def decide(approval_id: str, decision: str, comment: str | None = None, role: st
     return item.copy()
 
 
-def mark_executed(approval_id: str) -> bool:
+def mark_executed(approval_id: str, result: Any = None, execution_id: str | None = None) -> bool:
     item = _APPROVALS.get(approval_id)
     if not item or item["status"] != "approved":
         return False
     item["status"] = "executed"
     item["executed_at"] = time.time()
+    item["execution_id"] = execution_id or f"exec-{approval_id}"
+    item["execution_result"] = result
     return True
 
 
