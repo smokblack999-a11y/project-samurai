@@ -21,7 +21,7 @@ type OpenAIProvider struct {
 func NewOpenAIProvider() *OpenAIProvider {
 	model := os.Getenv("OPENAI_MODEL")
 	if model == "" {
-		model = "gpt-5.6-mini"
+		model = "gpt-5-mini"
 	}
 	return &OpenAIProvider{
 		APIKey: os.Getenv("OPENAI_API_KEY"),
@@ -43,6 +43,7 @@ func (p *OpenAIProvider) Suggest(ctx context.Context, lead leads.Lead, customerM
 	payload := map[string]any{
 		"model": p.Model,
 		"input": prompt,
+		"store": false,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
