@@ -2,3 +2,5 @@ python-dotenv
 rich
 requests
 flask
+pydantic>=2,<3
+openai-agents>=0.4,<1
