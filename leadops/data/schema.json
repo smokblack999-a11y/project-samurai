@@ -1,0 +1,1 @@
+{"type":"object","additionalProperties":false,"required":["id","text","intent","score","action"],"properties":{"id":{"type":"string"},"text":{"type":"string"},"intent":{"type":"string","enum":["buying","information"]},"score":{"type":"integer","minimum":0,"maximum":100},"action":{"type":"string","enum":["human_followup","auto_reply"]}}}
