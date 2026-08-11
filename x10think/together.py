@@ -6,14 +6,11 @@ from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-
 DEFAULT_BASE_URL = "https://api.together.ai/v1"
 DEFAULT_MODEL = "openai/gpt-oss-20b"
 
-
 class TogetherError(RuntimeError):
     """Safe, user-facing Together API failure without exposing credentials."""
-
 
 @dataclass(frozen=True)
 class TogetherConfig:
@@ -27,13 +24,16 @@ class TogetherConfig:
         key = os.getenv("TOGETHER_API_KEY", "").strip()
         if not key:
             return None
+        try:
+            timeout = float(os.getenv("TOGETHER_TIMEOUT", "20"))
+        except ValueError:
+            timeout = 20.0
         return cls(
             api_key=key,
             base_url=os.getenv("TOGETHER_BASE_URL", DEFAULT_BASE_URL).rstrip("/"),
             model=os.getenv("TOGETHER_MODEL", DEFAULT_MODEL),
-            timeout=float(os.getenv("TOGETHER_TIMEOUT", "20")),
+            timeout=max(1.0, min(timeout, 120.0)),
         )
-
 
 def diagnose(prompt: str, *, config: TogetherConfig | None = None) -> str:
     cfg = config or TogetherConfig.from_env()
@@ -45,10 +45,7 @@ def diagnose(prompt: str, *, config: TogetherConfig | None = None) -> str:
     payload = {
         "model": cfg.model,
         "messages": [
-            {
-                "role": "system",
-                "content": "You are an infrastructure diagnostics assistant. Be concise, evidence-based, and propose only safe, reversible next steps.",
-            },
+            {"role": "system", "content": "You are an infrastructure diagnostics assistant. Be concise, evidence-based, and propose only safe, reversible next steps."},
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.1,
@@ -57,10 +54,7 @@ def diagnose(prompt: str, *, config: TogetherConfig | None = None) -> str:
     request = Request(
         f"{cfg.base_url}/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {cfg.api_key}",
-            "Content-Type": "application/json",
-        },
+        headers={"Authorization": f"Bearer {cfg.api_key}", "Content-Type": "application/json"},
         method="POST",
     )
     try:
@@ -74,7 +68,7 @@ def diagnose(prompt: str, *, config: TogetherConfig | None = None) -> str:
         raise TogetherError(f"Together AI request failed with HTTP {exc.code}") from None
     except (URLError, TimeoutError):
         raise TogetherError("Together AI is unreachable or timed out") from None
-    except (ValueError, json.JSONDecodeError):
+    except (UnicodeDecodeError, json.JSONDecodeError):
         raise TogetherError("Together AI returned invalid JSON") from None
 
     try:
