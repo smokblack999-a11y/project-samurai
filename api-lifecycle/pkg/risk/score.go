@@ -18,32 +18,34 @@ type Score struct {
 
 const maxUnknownTrafficShare = 0.01
 
-// Calculate produces an explainable score from the canonical Evidence model.
+// Calculate produces an explainable 100-point score from canonical Evidence.
 // Hard shutdown policy remains in audit.Policy; this score is a decision aid,
-// not a permission to bypass safety gates.
+// not permission to bypass safety gates.
 func Calculate(e report.Evidence) Score {
     s := Score{}
 
-    // Full consumer coverage is only credited when there are no active callers.
+    // 25: all known consumers have stopped using the retiring endpoint.
     if e.ConsumerCount > 0 && e.ActiveConsumerCount == 0 {
-        s.ConsumerCoverage = 30
+        s.ConsumerCoverage = 25
     }
 
+    // 25: a concrete, healthy replacement exists.
     if strings.TrimSpace(e.Replacement) != "" && e.ReplacementHealthy {
         s.ReplacementReady = 25
     }
 
+    // 15: observed traffic is sufficiently known.
     if e.UnknownTrafficShare <= maxUnknownTrafficShare {
-        s.TrafficHealth = 20
+        s.TrafficHealth = 15
         s.UnknownConsumers = 15
     }
 
+    // 10: migration evidence is complete.
     if e.MigrationCompletion >= 1 {
         s.MigrationEvidence = 10
     }
 
-    // RFC 8594 Sunset is a signal, not a guarantee. Presence earns policy
-    // evidence but never overrides runtime consumer or migration evidence.
+    // 10: RFC 8594 Sunset is useful policy evidence, never a guarantee.
     if e.Sunset != nil {
         s.SunsetPolicy = 10
     }
