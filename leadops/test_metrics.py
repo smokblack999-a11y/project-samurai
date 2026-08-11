@@ -6,6 +6,7 @@ def test_metrics_for_buying():
     assert result["precision"] == 0.5
     assert result["recall"] == 0.5
     assert result["f1"] == 0.5
+    assert result["false_positive_rate"] == 1.0
 
 
 def test_operational_summary():
