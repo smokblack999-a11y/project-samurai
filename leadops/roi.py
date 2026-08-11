@@ -9,6 +9,8 @@ class BusinessInput:
     software_price: float
 
 def calculate(i: BusinessInput) -> dict:
+    if i.monthly_messages < 0 or i.hot_leads < 0 or not 0 <= i.conversion_rate <= 1 or i.average_sale < 0 or i.software_price < 0:
+        raise ValueError("invalid business inputs")
     customers = i.hot_leads * i.conversion_rate
     revenue = customers * i.average_sale
     return {
