@@ -74,6 +74,9 @@ class APIHandler(BaseHTTPRequestHandler):
                 self._json(503, {"error": "agent_unavailable"})
                 return
             result = self.agent.diagnose(prompt)
+            if not isinstance(result, dict) or not result.get("ok"):
+                self._json(502, {"error": "diagnostic_provider_failed", "diagnosis": result})
+                return
             self._json(200, {"ok": True, "diagnosis": result})
         except TogetherError as exc:
             self._json(502, {"error": str(exc)})
