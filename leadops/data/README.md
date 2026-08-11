@@ -1,9 +1,11 @@
-# Evaluation dataset
+# Real pilot dataset
 
 Use only anonymized, consented or otherwise authorized real Telegram messages for the commercial benchmark.
 
 Required fields: `id`, `text`, `intent`, `score`, `action`.
 
-Target: first 100 messages from one real pilot. Keep the source business and annotator policy documented outside the raw dataset.
+Target: first 100 messages from one real pilot.
 
-Do not commit API keys, usernames, phone numbers, payment data, session files, Telegram credentials, or unnecessary personal data. Keep production exports outside Git unless explicitly sanitized.
+Before storage, remove names, phone numbers, emails, usernames, payment data, session files and unrelated personal data. Keep production exports outside Git unless explicitly sanitized and authorized.
+
+The benchmark must record annotator policy and source consent separately from the message text.
