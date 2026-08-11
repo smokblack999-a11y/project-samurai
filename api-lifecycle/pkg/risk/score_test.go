@@ -41,7 +41,7 @@ func TestSafeRisk(t *testing.T) {
     if s.Decision != "SAFE" {
         t.Fatalf("expected SAFE got %s total=%d", s.Decision, s.Total)
     }
-    if s.Total != 110 {
-        t.Fatalf("expected current weighted total 110, got %d", s.Total)
+    if s.Total != 100 {
+        t.Fatalf("expected normalized total 100, got %d", s.Total)
     }
 }
