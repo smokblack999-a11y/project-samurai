@@ -1,4 +1,4 @@
-.PHONY: test evaluate benchmark
+.PHONY: test evaluate benchmark metrics report
 
 test:
 	pytest -q
@@ -8,3 +8,9 @@ evaluate:
 
 benchmark:
 	python benchmark.py
+
+metrics:
+	python -m metrics
+
+report:
+	python evaluate_report.py
