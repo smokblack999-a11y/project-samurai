@@ -1,0 +1,51 @@
+name: API Lifecycle Guard
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-lifecycle
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Risk gate
+        shell: bash
+        run: |
+          if [ -f evidence.json ]; then
+            decision=$(grep -o '"decision"[[:space:]]*:[[:space:]]*"[A-Z]*"' evidence.json | head -1 | cut -d'"' -f4 || true)
+            case "$decision" in
+              BLOCKED)
+                echo "::error title=API lifecycle blocked::Retirement evidence is BLOCKED"
+                exit 1
+                ;;
+              REVIEW)
+                echo "::warning title=API lifecycle review::Retirement requires human review"
+                ;;
+              SAFE)
+                echo "API lifecycle gate: SAFE"
+                ;;
+              *)
+                echo "No evidence decision found; code/tests passed."
+                ;;
+            esac
+          else
+            echo "No evidence.json supplied; skipping evidence gate."
+          fi
