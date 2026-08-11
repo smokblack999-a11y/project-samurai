@@ -7,6 +7,7 @@ from pathlib import Path
 from .health import score, snapshot
 from .security import scan
 from .store import Store
+from .together import TogetherError, diagnose as together_diagnose
 
 
 class Agent:
@@ -25,6 +26,14 @@ class Agent:
         }
         self.store.write(state)
         return state
+
+    def diagnose(self, prompt: str) -> dict:
+        """Run optional external diagnostics; never executes shell commands."""
+        try:
+            answer = together_diagnose(prompt)
+            return {"provider": "together", "ok": True, "answer": answer}
+        except TogetherError as exc:
+            return {"provider": "together", "ok": False, "error": str(exc)}
 
     def run_forever(self, interval: int) -> None:
         while True:
