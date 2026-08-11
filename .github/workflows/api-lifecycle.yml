@@ -58,6 +58,29 @@ assert b['evidence_fingerprint']
 assert b['actions']
 print('e2e remediation bundle: OK', b['priority'])
 PY
+      - name: API lifecycle risk gate
+        run: |
+          decision=$(python - <<'PY'
+import json
+print(json.load(open('/tmp/evidence.json')).get('decision',''))
+PY
+          )
+          case "$decision" in
+            BLOCKED)
+              echo "::error title=API lifecycle blocked::Retirement evidence is BLOCKED"
+              exit 1
+              ;;
+            REVIEW)
+              echo "::warning title=API lifecycle review::Retirement requires human review"
+              ;;
+            SAFE)
+              echo "API lifecycle gate: SAFE"
+              ;;
+            *)
+              echo "::error title=API lifecycle invalid::Missing or invalid decision"
+              exit 1
+              ;;
+          esac
       - name: OpenAPI inventory smoke test
         working-directory: api-lifecycle
         run: test "$(go run ./cmd/samurai-inventory -openapi examples/openapi.json | python -c 'import json,sys; print(len(json.load(sys.stdin)))')" -eq 4
