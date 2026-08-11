@@ -9,15 +9,22 @@ from roi import calculate, BusinessInput
 def build_report() -> dict:
     evaluation = run()
     roi = calculate(BusinessInput(5000, 100, 0.10, 200, 149))
+    synthetic_ok = evaluation["intent_accuracy"] >= 0.90 and evaluation["action_accuracy"] >= 0.90
     return {
         "product": "Telegram LeadOps AI",
         "evaluation": evaluation,
         "business_model": roi,
         "gates": {
-            "pilot_ready": evaluation["intent_accuracy"] >= 0.90 and evaluation["action_accuracy"] >= 0.90,
-            "sales_ready": evaluation["intent_accuracy"] >= 0.90 and roi["roi_multiplier"] >= 5,
+            "synthetic_pilot_ready": synthetic_ok,
+            "sales_ready": False,
+            "reason": "real labeled pilot data and a paid pilot are required before sales_ready can become true",
         },
-        "warning": "Synthetic baseline cases are not evidence of market demand; replace them with labeled pilot data before claiming production accuracy or ROI.",
+        "next_gate": {
+            "minimum_real_messages": 100,
+            "minimum_paid_pilots": 1,
+            "required_metrics": ["precision", "recall", "f1", "false_positive_rate", "latency", "cost_per_message"],
+        },
+        "warning": "Synthetic baseline cases are not evidence of market demand or production accuracy.",
     }
 
 if __name__ == "__main__":
