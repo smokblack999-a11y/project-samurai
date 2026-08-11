@@ -11,4 +11,12 @@ Production flow:
 5. The decision is persisted with the event.
 6. High-value messages produce `human_followup`; this MVP never sends outbound Telegram messages automatically.
 
-This boundary lets TDLib be replaced or upgraded without changing the business decision engine.
+Security rules:
+
+- Telegram credentials stay in the TDLib adapter environment.
+- `OPENAI_API_KEY` stays in the API service environment and is never committed.
+- Message text is not logged by default.
+- Event IDs must be deterministic and unique.
+- The adapter owns TDLib authorization state.
+- The API owns business decisions and persistence.
+- Outbound Telegram actions remain disabled until human-approved pilot validation.
