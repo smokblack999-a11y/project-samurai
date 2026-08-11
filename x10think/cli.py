@@ -6,6 +6,7 @@ import platform
 import shutil
 import socket
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -30,21 +31,22 @@ def collect_telemetry() -> dict[str, Any]:
 
 def build_local_report() -> dict[str, Any]:
     telemetry = collect_telemetry()
+    disk_ok = telemetry["disk_total_bytes"] > 0 and telemetry["disk_free_bytes"] >= 0
     action = "health"
     payload = {"scope": "local"}
     operation = Operation(
-        id=f"local-{int(time.time())}",
-        trace_id=f"trace-{int(time.time_ns())}",
+        id=f"local-{uuid.uuid4().hex}",
+        trace_id=f"trace-{uuid.uuid4().hex}",
         action=action,
         payload=payload,
-        risk_score=0,
+        risk_score=5,
         fingerprint=Operation.make_fingerprint(action, payload),
-        status=OperationStatus.VERIFIED,
+        status=OperationStatus.VERIFIED if disk_ok else OperationStatus.VERIFY_FAILED,
         execution_id=None,
     )
     events = [
         {"event": "telemetry_collected", "data": telemetry},
-        {"event": "health_verified", "data": {"ok": True}},
+        {"event": "health_verified", "data": {"disk_check": disk_ok}},
     ]
     return json.loads(report_json(operation, events))
 
@@ -59,10 +61,11 @@ def main() -> int:
     if args.command == "audit":
         report = build_local_report()
         output = Path(args.output)
+        output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
         print(f"X10THINK Sentinel report: {output.resolve()}")
         print(f"status={report['operation']['status']} risk={report['operation']['risk_score']}")
-        return 0
+        return 0 if report["operation"]["status"] == OperationStatus.VERIFIED.value else 2
     return 1
 
 
