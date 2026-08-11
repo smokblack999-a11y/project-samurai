@@ -1,0 +1,13 @@
+[
+  {
+    "endpoint": "/v1/orders",
+    "method": "GET",
+    "sunset": "2026-12-31T23:59:59Z",
+    "consumers": 0,
+    "unknown_consumers": 0,
+    "replacement_ready": true,
+    "traffic_health": 100,
+    "migration_evidence": true,
+    "sunset_policy": true
+  }
+]
