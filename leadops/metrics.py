@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import Counter
+
 
 def rate(values: list[bool]) -> float:
     return round(sum(values) / len(values), 4) if values else 0.0
@@ -13,3 +15,17 @@ def classification_metrics(expected: list[str], actual: list[str], positive: str
     recall = tp / (tp + fn) if tp + fn else 0.0
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     return {"precision": round(precision, 4), "recall": round(recall, 4), "f1": round(f1, 4)}
+
+
+def operational_summary(decisions: list[dict]) -> dict[str, int]:
+    intents = Counter(d.get("intent") for d in decisions)
+    actions = Counter(d.get("recommended_action") for d in decisions)
+    urgency = Counter(d.get("urgency") for d in decisions)
+    return {
+        "processed": len(decisions),
+        "buying": intents["buying"],
+        "information": intents["information"],
+        "human_followup": actions["human_followup"],
+        "auto_reply": actions["auto_reply"],
+        "high_urgency": urgency["high"],
+    }
