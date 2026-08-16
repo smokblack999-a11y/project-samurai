@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SUPRA OS 5.1</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05060b;color:#fff;font-family:Inter,system-ui,sans-serif}button{border:1px solid #183a3a;background:#0a1118;color:#dff;border-radius:10px;padding:12px 14px;font-weight:700}button:active{transform:scale(.98)}#app{height:100%;display:flex;flex-direction:column;background:radial-gradient(circle at 50% 10%,#10252a 0,#05060b 48%)}header{height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #132025;background:#070a10cc;backdrop-filter:blur(16px)}.brand{letter-spacing:2px;color:#00f5c3;font-weight:900}.status{font-size:11px;color:#7e9999}.desktop{position:relative;flex:1;padding:18px;overflow:auto}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:720px;margin:0 auto}.app{min-height:130px;text-align:left;padding:18px;background:linear-gradient(145deg,#0b1219,#071017);border:1px solid #183038;border-radius:18px;box-shadow:0 12px 40px #0008}.icon{font-size:32px;margin-bottom:16px}.name{font-weight:800}.desc{margin-top:5px;font-size:12px;color:#769092}.panel{position:absolute;inset:18px;background:#070b11f2;border:1px solid #183038;border-radius:18px;display:none;flex-direction:column;overflow:hidden;box-shadow:0 20px 80px #000b}.panel.open{display:flex}.panelhead{height:54px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #183038}.content{padding:14px;overflow:auto;flex:1}.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:9px;background:#101820}.memoryRow{padding:12px;border:1px solid #183038;border-radius:10px;margin-bottom:8px;font-size:12px}.telegram{height:100%;display:flex;flex-direction:column}.telegram iframe{border:0;flex:1;width:100%;background:#fff}.muted{color:#789;font-size:12px}
+</style>
+</head>
+<body>
+<div id="app">
+<header><div class="brand">SUPRA OS 5.1</div><div class="status" id="status">PRIVATE RUNTIME</div></header>
+<main class="desktop">
+<div class="grid">
+<button class="app" onclick="SupraUI.open('telegram')"><div class="icon">✈</div><div class="name">Telegram</div><div class="desc">Embedded messaging runtime</div></button>
+<button class="app" onclick="SupraAndroid.openCamera()"><div class="icon">◉</div><div class="name">Camera</div><div class="desc">Capture directly into private storage</div></button>
+<button class="app" onclick="SupraUI.open('gallery');SupraUI.refreshGallery()"><div class="icon">▣</div><div class="name">Gallery</div><div class="desc">SUPRA-only media</div></button>
+<button class="app" onclick="SupraUI.open('memory');SupraUI.refreshMemory()"><div class="icon">▤</div><div class="name">Memory</div><div class="desc">Private files and Telegram downloads</div></button>
+</div>
+
+<section id="telegram" class="panel"><div class="panelhead"><b>TELEGRAM</b><button onclick="SupraUI.close('telegram')">CLOSE</button></div><div class="telegram"><iframe id="tg" allow="camera; microphone; clipboard-read; clipboard-write"></iframe></div></section>
+<section id="gallery" class="panel"><div class="panelhead"><b>PRIVATE GALLERY</b><button onclick="SupraUI.close('gallery')">CLOSE</button></div><div class="content"><div id="galleryGrid" class="gallery"></div><p id="galleryEmpty" class="muted">No private photos yet.</p></div></section>
+<section id="memory" class="panel"><div class="panelhead"><b>PRIVATE MEMORY</b><button onclick="SupraUI.close('memory')">CLOSE</button></div><div class="content"><div id="memoryList"></div></div></section>
+</main>
+</div>
+<script>
+const SupraUI={
+ open(id){document.querySelectorAll('.panel').forEach(x=>x.classList.remove('open'));const p=document.getElementById(id);if(p)p.classList.add('open');if(id==='telegram'){const tg=document.getElementById('tg');if(!tg.src)tg.src=SupraAndroid.telegramUrl()}},
+ close(id){document.getElementById(id)?.classList.remove('open')},
+ refreshGallery(){const grid=document.getElementById('galleryGrid'),empty=document.getElementById('galleryEmpty');grid.innerHTML='';let items=[];try{items=JSON.parse(SupraAndroid.listMedia())}catch(e){}empty.style.display=items.length?'none':'block';items.forEach(x=>{const img=document.createElement('img');img.loading='lazy';img.src=x.uri;img.alt=x.name;grid.appendChild(img)})},
+ refreshMemory(){const root=document.getElementById('memoryList');root.innerHTML='';let files=[];try{files=JSON.parse(SupraAndroid.listTelegramFiles())}catch(e){}if(!files.length){root.innerHTML='<p class="muted">No private Telegram downloads.</p>';return}files.forEach(x=>{const row=document.createElement('div');row.className='memoryRow';row.textContent=x.name+' · '+Math.round(x.size/1024)+' KB';root.appendChild(row)})}
+};
+window.SupraUI=SupraUI;
+try{document.getElementById('status').textContent=JSON.parse(SupraAndroid.runtimeStatus()).tdlib?'TDLIB ONLINE':'PRIVATE STORAGE + CAMERA ONLINE'}catch(e){}
+</script>
+</body>
+</html>
