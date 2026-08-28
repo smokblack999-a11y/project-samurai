@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LeadOpsEvaluationCase",
+  "type": "object",
+  "required": ["id", "text", "expected_intent", "expected_action", "expected_hot"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "text": {"type": "string", "minLength": 1},
+    "expected_intent": {"enum": ["buying", "information", "support", "spam", "other"]},
+    "expected_action": {"enum": ["human_followup", "auto_reply", "ignore", "escalate"]},
+    "expected_hot": {"type": "boolean"},
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "purpose": "Human-labeled Telegram inbound messages for LeadOps evaluation",
+  "privacy": {"store_names": false, "store_usernames": false, "store_phone_numbers": false, "store_raw_export": false},
+  "required": ["id", "text_redacted", "intent", "action", "outcome"],
+  "intent": ["buying", "information", "support", "spam", "other"],
+  "action": ["human_followup", "auto_reply", "ignore", "needs_review"],
+  "outcome": ["qualified", "not_qualified", "unknown"],
+  "score": {"min": 0, "max": 100}
+}

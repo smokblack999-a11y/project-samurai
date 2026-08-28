@@ -1,0 +1,4 @@
+{"id":"seed-001","text":"Сколько стоит и можно ли сегодня?","intent":"buying","score":95,"action":"human_followup"}
+{"id":"seed-002","text":"Какие у вас услуги?","intent":"information","score":30,"action":"auto_reply"}
+{"id":"seed-003","text":"Хочу заказать завтра","intent":"buying","score":85,"action":"human_followup"}
+{"id":"seed-004","text":"Расскажите подробнее","intent":"information","score":25,"action":"auto_reply"}
