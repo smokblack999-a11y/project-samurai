@@ -1,0 +1,39 @@
+{
+  "schema_version": "agentcheck/benchmark-v1",
+  "purpose": "Public-repository benchmark targets for measuring signal quality without claiming exploitability.",
+  "targets": [
+    {
+      "repo": "NousResearch/hermes-agent",
+      "role": "Python agent system",
+      "source": "https://github.com/NousResearch/hermes-agent",
+      "evidence_target": "agent/tool boundaries, security guidance, runtime system guards",
+      "expected": "review"
+    },
+    {
+      "repo": "browser-use/browser-use",
+      "role": "browser automation agent",
+      "source": "https://github.com/browser-use/browser-use",
+      "evidence_target": "tool execution and browser automation paths",
+      "expected": "review"
+    },
+    {
+      "repo": "crewAIInc/crewAI",
+      "role": "multi-agent framework",
+      "source": "https://github.com/crewAIInc/crewAI",
+      "evidence_target": "agent/tool orchestration and authorization boundaries",
+      "expected": "review"
+    },
+    {
+      "repo": "HKUDS/nanobot",
+      "role": "lightweight agent",
+      "source": "https://github.com/HKUDS/nanobot",
+      "evidence_target": "tool calls, external content, execution boundaries",
+      "expected": "review"
+    }
+  ],
+  "measurement": {
+    "required_fields": ["rule_id", "file", "evidence", "confidence"],
+    "metrics": ["true_positive", "false_positive", "missed_signal", "remediation_usefulness"],
+    "rule": "Do not label a finding as a vulnerability unless independently verified."
+  }
+}
