@@ -8,6 +8,7 @@ import (
 
 	"github.com/smokblack999-a11y/project-samurai/internal/audit"
 	"github.com/smokblack999-a11y/project-samurai/internal/dts"
+	"github.com/smokblack999-a11y/project-samurai/internal/regdump"
 )
 
 type sarifLog struct { Version string `json:"version"`; Schema string `json:"$schema"`; Runs []sarifRun `json:"runs"` }
@@ -18,9 +19,10 @@ type sarifResult struct { RuleID string `json:"ruleId"`; Level string `json:"lev
 type sarifMessage struct { Text string `json:"text"` }
 
 func main() {
-	if len(os.Args) < 3 || (os.Args[1] != "audit" && os.Args[1] != "audit-dts") {
+	if len(os.Args) < 3 || (os.Args[1] != "audit" && os.Args[1] != "audit-dts" && os.Args[1] != "audit-regs") {
 		fmt.Fprintln(os.Stderr, "usage: samurai audit [--format text|json|sarif] [--fail-on high] target.json")
 		fmt.Fprintln(os.Stderr, "       samurai audit-dts [--format text|json] target.dts")
+		fmt.Fprintln(os.Stderr, "       samurai audit-regs [--format text|json|sarif] [--fail-on high] dump.json")
 		os.Exit(2)
 	}
 	fs := flag.NewFlagSet(os.Args[1], flag.ExitOnError)
@@ -35,19 +37,19 @@ func main() {
 		evidence, err := dts.Parse(fs.Arg(0), string(data))
 		if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
 		switch *format {
-		case "json":
-			enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(evidence)
-		case "text":
-			fmt.Printf("source=%s iommu_nodes=%d dma_references=%d interrupts=%d\n", evidence.Source, evidence.IOMMUCount, evidence.DMADevices, evidence.Interrupts)
-		default:
-			fmt.Fprintln(os.Stderr, "audit-dts supports text or json")
-			os.Exit(2)
+		case "json": enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(evidence)
+		case "text": fmt.Printf("source=%s iommu_nodes=%d dma_references=%d interrupts=%d\n", evidence.Source, evidence.IOMMUCount, evidence.DMADevices, evidence.Interrupts)
+		default: fmt.Fprintln(os.Stderr, "audit-dts supports text or json"); os.Exit(2)
 		}
 		return
 	}
 
 	var target audit.Target
-	if err := json.Unmarshal(data, &target); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
+	if os.Args[1] == "audit-regs" {
+		dump, err := regdump.Load(fs.Arg(0)); if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
+		target = regdump.ToTarget(dump)
+	} else if err := json.Unmarshal(data, &target); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
+
 	findings := audit.Run(target)
 	switch *format {
 	case "json":
