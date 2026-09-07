@@ -84,4 +84,4 @@ jobs:
           path: android/bin/*.apk
           if-no-files-found: error
 
-# CI trigger: verify Android APK pipeline on the fixed SDK/NDK configuration.
+# CI trigger: force a fresh Android APK build after SDK/NDK fixes.
