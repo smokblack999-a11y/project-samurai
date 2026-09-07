@@ -34,11 +34,14 @@ func main() {
 	if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
 
 	if os.Args[1] == "audit-dts" {
-		evidence, err := dts.Parse(fs.Arg(0), string(data))
+		target, err := dts.Parse(fs.Arg(0), string(data))
 		if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
 		switch *format {
-		case "json": enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(evidence)
-		case "text": fmt.Printf("source=%s iommu_nodes=%d dma_references=%d interrupts=%d\n", evidence.Source, evidence.IOMMUCount, evidence.DMADevices, evidence.Interrupts)
+		case "json":
+			out := struct { Source string `json:"source"`; IOMMUCount int `json:"iommu_count"`; DMADevices int `json:"dma_devices"`; Target audit.Target `json:"target"` }{target.EvidenceSource, len(target.IOMMUs), len(target.Devices), target}
+			enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(out)
+		case "text":
+			fmt.Printf("source=%s iommu_nodes=%d dma_references=%d\n", target.EvidenceSource, len(target.IOMMUs), len(target.Devices))
 		default: fmt.Fprintln(os.Stderr, "audit-dts supports text or json"); os.Exit(2)
 		}
 		return
