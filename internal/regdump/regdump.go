@@ -9,8 +9,8 @@ import (
 )
 
 // Dump is a conservative normalized representation of evidence extracted from
-// an MMIO/register capture. The adapter never invents a value: absent fields
-// remain unknown and therefore do not become compliance failures.
+// an MMIO/register capture. Missing MUST-level evidence is rejected before the
+// deterministic audit runs; the adapter never invents compliance values.
 type Dump struct {
 	Source string `json:"source"`
 	IOMMUs []IOMMUDump `json:"iommus"`
@@ -37,7 +37,27 @@ func Load(path string) (Dump, error) {
 	var d Dump
 	if err := json.Unmarshal(data, &d); err != nil { return Dump{}, fmt.Errorf("register dump: %w", err) }
 	if len(d.IOMMUs) == 0 { return Dump{}, fmt.Errorf("register dump: no IOMMU records") }
+	if err := d.Validate(); err != nil { return Dump{}, err }
 	return d, nil
+}
+
+// Validate ensures every field needed for a MUST-level rule represented by
+// this adapter is actually present. SHOULD-level fields remain optional.
+func (d Dump) Validate() error {
+	for _, r := range d.IOMMUs {
+		missing := ""
+		if r.Name == "" { missing += " name" }
+		if r.Enabled == nil { missing += " enabled" }
+		if r.DeviceIDBits == nil { missing += " device_id_bits" }
+		if r.PhysAddrBits == nil { missing += " phys_addr_bits" }
+		if r.MSI == nil { missing += " msi" }
+		if r.ResetMode == nil { missing += " reset_mode" }
+		if r.PMPEnforced == nil { missing += " pmp_enforced" }
+		if r.PASIDSupported == nil { missing += " pasid_supported" }
+		if r.PASIDSupported != nil && *r.PASIDSupported && r.PASIDBits == nil { missing += " pasid_bits" }
+		if missing != "" { return fmt.Errorf("register evidence incomplete for %q; missing MUST-level fields:%s", r.Name, missing) }
+	}
+	return nil
 }
 
 func ToTarget(d Dump) audit.Target {
