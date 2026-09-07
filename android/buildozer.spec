@@ -11,5 +11,10 @@ android.permissions=INTERNET,CAMERA
 android.api=35
 android.minapi=24
 android.archs=arm64-v8a,armeabi-v7a
+android.ndk=28c
+android.sdk_path=/usr/local/lib/android/sdk
+android.ndk_path=/usr/local/lib/android/sdk/ndk/28.2.13676358
+android.accept_sdk_license=True
+android.skip_update=True
 [buildozer]
 log_level=2
