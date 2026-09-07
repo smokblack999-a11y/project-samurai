@@ -1,5 +1,7 @@
+import difflib
 import json
 import hashlib
+import re
 from .database import connect
 from domain.economics import margin_percent, profit_minor
 
@@ -7,6 +9,66 @@ from domain.economics import margin_percent, profit_minor
 def _hash_items(items):
     payload = [item.model_dump(mode="json") for item in items]
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def _normalize_name(value):
+    value = value.casefold().replace("ё", "е")
+    return re.sub(r"[^\w\s]", " ", value, flags=re.UNICODE).strip()
+
+
+def _name_score(left, right):
+    a = _normalize_name(left)
+    b = _normalize_name(right)
+    if not a or not b:
+        return 0.0
+    if a == b:
+        return 1.0
+    ratio = difflib.SequenceMatcher(None, a, b).ratio()
+    at = set(a.split())
+    bt = set(b.split())
+    token = len(at & bt) / max(1, len(at | bt))
+    return round(max(ratio, token), 4)
+
+
+def match_inventory_items(items, top_k=3):
+    with connect() as conn:
+        inventory = [dict(row) for row in conn.execute(
+            "SELECT id,name,sku,currency FROM inventory ORDER BY name COLLATE NOCASE"
+        ).fetchall()]
+
+    results = []
+    for item in items:
+        name = " ".join(item.name.split())
+        currency = item.currency.upper()
+        candidates = []
+        for row in inventory:
+            if row["currency"].upper() != currency:
+                continue
+            if item.sku and row.get("sku") and item.sku.strip().casefold() == row["sku"].strip().casefold():
+                score = 1.0
+                reason = "exact_sku"
+            else:
+                score = _name_score(name, row["name"])
+                reason = "name_similarity"
+            if score >= 0.55:
+                candidates.append({
+                    "inventory_id": row["id"],
+                    "name": row["name"],
+                    "sku": row.get("sku"),
+                    "score": score,
+                    "reason": reason,
+                })
+        candidates.sort(key=lambda x: (x["score"], x["reason"] == "exact_sku"), reverse=True)
+        candidates = candidates[:top_k]
+        best = candidates[0]["score"] if candidates else 0.0
+        decision = "auto_match" if best >= 0.92 else "review_match" if best >= 0.75 else "new_product"
+        results.append({
+            "input_name": name,
+            "input_sku": item.sku,
+            "candidates": candidates,
+            "decision": decision,
+        })
+    return results
 
 
 def get_idempotent_response(key, items):
@@ -39,20 +101,28 @@ def add_inventory(items, idempotency_key=None):
         for item in items:
             name = " ".join(item.name.split())
             currency = item.currency.upper()
-            row = conn.execute(
-                "SELECT id FROM inventory WHERE name=? AND currency=?",
-                (name, currency),
-            ).fetchone()
+            sku = item.sku.strip() if item.sku else None
+            row = None
+            if sku:
+                row = conn.execute(
+                    "SELECT id FROM inventory WHERE sku=? AND currency=?",
+                    (sku, currency),
+                ).fetchone()
+            if not row:
+                row = conn.execute(
+                    "SELECT id FROM inventory WHERE name=? AND currency=?",
+                    (name, currency),
+                ).fetchone()
             if row:
                 inventory_id = row["id"]
                 conn.execute(
-                    "UPDATE inventory SET quantity=quantity+?, unit_price_minor=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    (item.quantity, item.unit_price_minor, inventory_id),
+                    "UPDATE inventory SET quantity=quantity+?, unit_price_minor=?, sku=COALESCE(?,sku), updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    (item.quantity, item.unit_price_minor, sku, inventory_id),
                 )
             else:
                 cur = conn.execute(
-                    "INSERT INTO inventory(name,quantity,unit_price_minor,sale_price_minor,currency) VALUES(?,?,?,?,?)",
-                    (name, item.quantity, item.unit_price_minor, None, currency),
+                    "INSERT INTO inventory(name,sku,quantity,unit_price_minor,sale_price_minor,currency) VALUES(?,?,?,?,?,?)",
+                    (name, sku, item.quantity, item.unit_price_minor, None, currency),
                 )
                 inventory_id = cur.lastrowid
             conn.execute(
