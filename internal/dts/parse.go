@@ -11,18 +11,18 @@ import (
 // Evidence is intentionally small: it extracts stable, auditable facts from
 // common DTS text without pretending to be a complete Device Tree compiler.
 type Evidence struct {
-	Source       string
-	IOMMUCount   int
-	DMADevices   int
-	IOMMURefs    map[string]string
-	Compatible   []string
-	Interrupts   int
+	Source     string            `json:"source"`
+	IOMMUCount int               `json:"iommu_count"`
+	DMADevices int               `json:"dma_devices"`
+	IOMMURefs  map[string]string `json:"iommu_refs"`
+	Compatible []string          `json:"compatible"`
+	Interrupts int               `json:"interrupts"`
 }
 
 var (
-	nodeRE = regexp.MustCompile(`(?m)^\s*([A-Za-z0-9,_@.+-]+)\s*\{`)
-	compatRE = regexp.MustCompile(`(?m)compatible\s*=\s*"([^"]+)"`)
-	iommuRefRE = regexp.MustCompile(`(?m)\biommus\s*=\s*<([^>]+)>\s*;`)
+	nodeRE      = regexp.MustCompile(`(?m)^\s*([A-Za-z0-9,_@.+-]+)\s*\{`)
+	compatRE    = regexp.MustCompile(`(?m)compatible\s*=\s*"([^"]+)"`)
+	iommuRefRE  = regexp.MustCompile(`(?m)\biommus\s*=\s*<([^>]+)>\s*;`)
 	interruptRE = regexp.MustCompile(`(?m)^\s*interrupts(?:-extended)?\s*=`)
 )
 
@@ -30,13 +30,9 @@ func Parse(source, text string) (Evidence, error) {
 	if strings.TrimSpace(text) == "" { return Evidence{}, fmt.Errorf("empty DTS source") }
 	e := Evidence{Source: source, IOMMURefs: map[string]string{}}
 	for _, m := range nodeRE.FindAllStringSubmatch(text, -1) {
-		name := m[1]
-		if strings.Contains(strings.ToLower(name), "iommu") { e.IOMMUCount++ }
+		if strings.Contains(strings.ToLower(m[1]), "iommu") { e.IOMMUCount++ }
 	}
-	e.Compatible = compatRE.FindAllStringSubmatch(text, -1)
-	for _, m := range e.Compatible {
-		if strings.Contains(strings.ToLower(m[1]), "iommu") { /* retained as compatibility evidence */ }
-	}
+	for _, m := range compatRE.FindAllStringSubmatch(text, -1) { e.Compatible = append(e.Compatible, m[1]) }
 	for _, m := range iommuRefRE.FindAllStringSubmatch(text, -1) {
 		if strings.TrimSpace(m[1]) != "" { e.DMADevices++ }
 	}
@@ -46,9 +42,7 @@ func Parse(source, text string) (Evidence, error) {
 
 // ParseUintCell converts a DTS cell such as 0x10 or 16 into an unsigned value.
 func ParseUintCell(cell string) (uint64, error) {
-	cell = strings.TrimSpace(cell)
-	cell = strings.TrimPrefix(cell, "<")
-	cell = strings.TrimSuffix(cell, ">")
+	cell = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(cell, "<"), ">"))
 	if cell == "" { return 0, fmt.Errorf("empty cell") }
 	base := 10
 	if strings.HasPrefix(cell, "0x") || strings.HasPrefix(cell, "0X") { base = 16; cell = cell[2:] }
