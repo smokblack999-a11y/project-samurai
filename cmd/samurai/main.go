@@ -20,27 +20,34 @@ type sarifMessage struct { Text string `json:"text"` }
 func main() {
 	if len(os.Args) < 3 || (os.Args[1] != "audit" && os.Args[1] != "audit-dts") {
 		fmt.Fprintln(os.Stderr, "usage: samurai audit [--format text|json|sarif] [--fail-on high] target.json")
-		fmt.Fprintln(os.Stderr, "       samurai audit-dts [--format text|json|sarif] [--fail-on high] target.dts")
+		fmt.Fprintln(os.Stderr, "       samurai audit-dts [--format text|json] target.dts")
 		os.Exit(2)
 	}
-
 	fs := flag.NewFlagSet(os.Args[1], flag.ExitOnError)
 	format := fs.String("format", "text", "text|json|sarif")
 	failOn := fs.String("fail-on", "critical", "critical|high|medium|low|none")
 	_ = fs.Parse(os.Args[2:])
 	if fs.NArg() != 1 { fmt.Fprintln(os.Stderr, "input file is required"); os.Exit(2) }
-
 	data, err := os.ReadFile(fs.Arg(0))
 	if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
 
-	var target audit.Target
 	if os.Args[1] == "audit-dts" {
-		target, err = dts.Parse(fs.Arg(0), string(data))
-	} else {
-		err = json.Unmarshal(data, &target)
+		evidence, err := dts.Parse(fs.Arg(0), string(data))
+		if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
+		switch *format {
+		case "json":
+			enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(evidence)
+		case "text":
+			fmt.Printf("source=%s iommu_nodes=%d dma_references=%d interrupts=%d\n", evidence.Source, evidence.IOMMUCount, evidence.DMADevices, evidence.Interrupts)
+		default:
+			fmt.Fprintln(os.Stderr, "audit-dts supports text or json")
+			os.Exit(2)
+		}
+		return
 	}
-	if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
 
+	var target audit.Target
+	if err := json.Unmarshal(data, &target); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
 	findings := audit.Run(target)
 	switch *format {
 	case "json":
@@ -50,9 +57,7 @@ func main() {
 		results := make([]sarifResult, 0, len(findings))
 		for _, f := range findings {
 			level := "warning"; if f.Severity == audit.Critical || f.Severity == audit.High { level = "error" }
-			results = append(results, sarifResult{RuleID:f.Rule, Level:level, Message:sarifMessage{Text:f.Title+": "+f.Evidence}, Properties:map[string]string{
-				"severity":string(f.Severity), "normative_level":string(f.NormativeLevel), "confidence":f.Confidence, "spec":f.Spec, "remediation":f.Remediation,
-			}})
+			results = append(results, sarifResult{RuleID:f.Rule, Level:level, Message:sarifMessage{Text:f.Title+": "+f.Evidence}, Properties:map[string]string{"severity":string(f.Severity), "normative_level":string(f.NormativeLevel), "confidence":f.Confidence, "spec":f.Spec, "remediation":f.Remediation}})
 		}
 		out := sarifLog{Version:"2.1.0", Schema:"https://json.schemastore.org/sarif-2.1.0.json", Runs:[]sarifRun{{Tool:sarifTool{Driver:sarifDriver{Name:"SamuraiOS", Version:"0.1.0"}}, Results:results}}}
 		enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(out)
