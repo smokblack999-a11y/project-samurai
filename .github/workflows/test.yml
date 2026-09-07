@@ -11,8 +11,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-      - run: go test ./cmd/samurai ./internal/audit
-      - run: go vet ./cmd/samurai ./internal/audit
+      - run: go test ./...
+      - run: go vet ./...
       - run: go build ./cmd/samurai
       - run: go run ./cmd/samurai audit --format json target.json
       - run: go run ./cmd/samurai audit --format sarif target.json > samurai-clean.sarif
