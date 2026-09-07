@@ -36,18 +36,26 @@ The baseline covers:
 
 Every finding carries severity, normative level, confidence, evidence, remediation and evidence provenance when supplied. `SARIF 2.1.0` output is available for CI/security tooling integration.
 
+## Real input milestone: DTS
+
+The repository now contains a minimal Linux Device Tree source parser under `internal/dts`. It intentionally extracts only evidence needed by the first IOMMU adapter: node name, `compatible`, `status`, and raw properties. It is **not** presented as a complete DT parser and does not infer security compliance from missing properties.
+
+Example fixture: `examples/sample.dts`.
+
+The next adapter step is to map parsed DTS evidence into the normalized IOMMU model with explicit provenance such as `file`, `node`, `property`, and extraction method. A `.dtb` binary decoder should be added only after the source adapter is stable.
+
 ## Kill-critic boundary
 
 This is an engineering MVP, not a certification claim. The commercial bottleneck is now clear: **replace hand-authored JSON with real platform evidence**.
 
 Next sequence:
 
-1. Linux Device Tree (`.dts` / `.dtb`) adapter.
-2. IOMMU register/capability dump adapter.
-3. Evidence provenance: source file, node/register/offset and extraction method.
+1. Map DTS evidence into the normalized audit model.
+2. Add IOMMU register/capability dump ingestion.
+3. Add evidence provenance: source file, node/register/offset and extraction method.
 4. Expand normative coverage only where the adapter can produce defensible evidence.
-5. Reproducible fixtures from real or emulated RISC-V systems.
-6. SARIF + CI security gate for SoC/vendor integration pipelines.
-7. Optional OpenAI explanation/report layer after deterministic findings exist.
+5. Add reproducible fixtures from real or emulated RISC-V systems.
+6. Harden SARIF + CI security gating for SoC/vendor integration pipelines.
+7. Add optional OpenAI explanation/report generation only after deterministic findings exist.
 
 The product wedge is an **RISC-V IOMMU integration/security pre-audit and CI assurance tool** for SoC/IP/firmware teams. It is not positioned as a generic AI scanner or certification replacement.
