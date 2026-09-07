@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Header, HTTPException, Query
 from core.config import get_settings
-from core.schemas import ConfirmRequest, SalePriceUpdate
-from db.repositories import add_inventory, list_inventory, list_ledger, set_sale_price, dashboard
+from core.schemas import ConfirmRequest, MatchRequest, SalePriceUpdate
+from db.repositories import add_inventory, list_inventory, list_ledger, set_sale_price, dashboard, match_inventory_items
 
 router = APIRouter()
 
@@ -9,6 +9,15 @@ router = APIRouter()
 def auth(token):
     if token != get_settings().stockscan_api_token:
         raise HTTPException(401, "invalid API token")
+
+
+@router.post("/inventory/match")
+def match_catalog(
+    req: MatchRequest,
+    x_stockscan_token: str | None = Header(None),
+):
+    auth(x_stockscan_token)
+    return {"matches": match_inventory_items(req.items)}
 
 
 @router.post("/inventory/confirm")
