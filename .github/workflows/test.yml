@@ -11,9 +11,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-      # The repository still contains an unrelated legacy api-lifecycle tree
-      # with missing internal packages. Test the SamuraiOS engine explicitly
-      # until that legacy tree is repaired or removed.
       - run: go test ./cmd/samurai ./internal/audit
       - run: go vet ./cmd/samurai ./internal/audit
       - run: go build ./cmd/samurai
@@ -27,7 +24,14 @@ jobs:
           rc=$?
           set -e
           test "$rc" -eq 1
-      - run: go run ./cmd/samurai audit --format sarif target-bad.json > samurai-bad.sarif
+      - name: Generate SARIF for failing fixture
+        shell: bash
+        run: |
+          set +e
+          go run ./cmd/samurai audit --format sarif target-bad.json > samurai-bad.sarif
+          rc=$?
+          set -e
+          test "$rc" -eq 1
       - uses: actions/upload-artifact@v4
         with:
           name: samurai-sarif-fixtures
