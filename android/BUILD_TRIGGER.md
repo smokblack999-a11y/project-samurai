@@ -1,0 +1,1 @@
+Android CI trigger marker. The build uses Buildozer with SDK/NDK paths and license acceptance configured in buildozer.spec.
