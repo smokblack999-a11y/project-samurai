@@ -12,6 +12,8 @@ go run ./cmd/samurai audit target.json
 go run ./cmd/samurai audit --format json target-bad.json
 go run ./cmd/samurai audit --format sarif target-bad.json
 go run ./cmd/samurai audit --format json --fail-on high target-bad.json
+go run ./cmd/samurai audit-dts --format json examples/sample.dts
+go run ./cmd/samurai audit-dts --format json fixtures/board.dts
 ```
 
 Exit code `1` means the selected severity gate was triggered. CI verifies this with an intentionally failing fixture.
@@ -38,9 +40,9 @@ Every finding carries severity, normative level, confidence, evidence, remediati
 
 ## Real input milestone: DTS
 
-The repository now contains a minimal Linux Device Tree source parser under `internal/dts`. It intentionally extracts only evidence needed by the first IOMMU adapter: node name, `compatible`, `status`, and raw properties. It is **not** presented as a complete DT parser and does not infer security compliance from missing properties.
+The repository now contains a deliberately small Linux Device Tree source evidence parser under `internal/dts`. It extracts IOMMU-shaped node count, `compatible` strings, `iommus` references, and interrupt declarations. It does **not** claim to be a complete DTS compiler and does not infer compliance from missing properties.
 
-Example fixture: `examples/sample.dts`.
+Use `audit-dts` to inspect raw evidence before it is mapped into the normalized audit model. `examples/sample.dts` and `fixtures/board.dts` are regression fixtures.
 
 The next adapter step is to map parsed DTS evidence into the normalized IOMMU model with explicit provenance such as `file`, `node`, `property`, and extraction method. A `.dtb` binary decoder should be added only after the source adapter is stable.
 
