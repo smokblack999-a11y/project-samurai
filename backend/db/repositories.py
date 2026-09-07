@@ -1,6 +1,7 @@
 import json
 import hashlib
 from .database import connect
+from domain.economics import margin_percent, profit_minor
 
 
 def _hash_items(items):
@@ -36,9 +37,11 @@ def add_inventory(items, idempotency_key=None):
                 return json.loads(existing["response_json"])
 
         for item in items:
+            name = " ".join(item.name.split())
+            currency = item.currency.upper()
             row = conn.execute(
                 "SELECT id FROM inventory WHERE name=? AND currency=?",
-                (item.name.strip(), item.currency),
+                (name, currency),
             ).fetchone()
             if row:
                 inventory_id = row["id"]
@@ -48,13 +51,13 @@ def add_inventory(items, idempotency_key=None):
                 )
             else:
                 cur = conn.execute(
-                    "INSERT INTO inventory(name,quantity,unit_price_minor,currency) VALUES(?,?,?,?)",
-                    (item.name.strip(), item.quantity, item.unit_price_minor, item.currency),
+                    "INSERT INTO inventory(name,quantity,unit_price_minor,sale_price_minor,currency) VALUES(?,?,?,?,?)",
+                    (name, item.quantity, item.unit_price_minor, None, currency),
                 )
                 inventory_id = cur.lastrowid
             conn.execute(
                 "INSERT INTO inventory_ledger(inventory_id,quantity_delta,unit_price_minor,currency,source,idempotency_key) VALUES(?,?,?,?,?,?)",
-                (inventory_id, item.quantity, item.unit_price_minor, item.currency, "purchase_confirmation", idempotency_key),
+                (inventory_id, item.quantity, item.unit_price_minor, currency, "purchase_confirmation", idempotency_key),
             )
             response["ids"].append(inventory_id)
             response["confirmed"] += 1
@@ -84,3 +87,49 @@ def list_ledger(limit=200):
                FROM inventory_ledger l JOIN inventory i ON i.id=l.inventory_id
                ORDER BY l.id DESC LIMIT ?""", (limit,)
         ).fetchall()]
+
+
+def set_sale_price(inventory_id, sale_price_minor):
+    with connect() as conn:
+        row = conn.execute("SELECT id FROM inventory WHERE id=?", (inventory_id,)).fetchone()
+        if not row:
+            raise ValueError("inventory item not found")
+        conn.execute(
+            "UPDATE inventory SET sale_price_minor=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (sale_price_minor, inventory_id),
+        )
+        conn.commit()
+    return {"updated": True, "id": inventory_id, "sale_price_minor": sale_price_minor}
+
+
+def dashboard():
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT id,name,quantity,unit_price_minor,sale_price_minor,currency FROM inventory ORDER BY name COLLATE NOCASE"
+        ).fetchall()
+    items = []
+    total_cost = 0
+    total_profit = 0
+    for row in rows:
+        sale = row["sale_price_minor"]
+        cost = int(row["unit_price_minor"])
+        margin = margin_percent(cost, int(sale)) if sale is not None and sale > 0 else None
+        profit = profit_minor(cost, int(sale), row["quantity"]) if sale is not None and sale > 0 else None
+        total_cost += round(cost * row["quantity"])
+        if profit is not None:
+            total_profit += profit
+        items.append({
+            "id": row["id"],
+            "name": row["name"],
+            "quantity": row["quantity"],
+            "cost_minor": cost,
+            "sale_price_minor": sale,
+            "currency": row["currency"],
+            "margin_percent": margin,
+            "profit_minor": profit,
+        })
+    return {
+        "items": items,
+        "total_stock_cost_minor": total_cost,
+        "total_expected_profit_minor": total_profit,
+    }
