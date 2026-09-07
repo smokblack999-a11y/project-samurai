@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Header, HTTPException, Query
 from core.config import get_settings
-from core.schemas import ConfirmRequest
-from db.repositories import add_inventory, list_inventory, list_ledger
+from core.schemas import ConfirmRequest, SalePriceUpdate
+from db.repositories import add_inventory, list_inventory, list_ledger, set_sale_price, dashboard
 
 router = APIRouter()
 
@@ -39,3 +39,22 @@ def ledger(
 ):
     auth(x_stockscan_token)
     return {"entries": list_ledger(limit)}
+
+
+@router.put("/inventory/{inventory_id}/sale-price")
+def update_sale_price(
+    inventory_id: int,
+    req: SalePriceUpdate,
+    x_stockscan_token: str | None = Header(None),
+):
+    auth(x_stockscan_token)
+    try:
+        return set_sale_price(inventory_id, req.sale_price_minor)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@router.get("/dashboard")
+def profit_dashboard(x_stockscan_token: str | None = Header(None)):
+    auth(x_stockscan_token)
+    return dashboard()
