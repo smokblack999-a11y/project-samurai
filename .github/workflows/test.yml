@@ -2,6 +2,7 @@ name: test
 on:
   push:
   pull_request:
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,5 +13,17 @@ jobs:
           go-version: '1.23'
       - run: go test ./...
       - run: go run ./cmd/samurai audit --format json target.json
-      - run: go run ./cmd/samurai audit --format json --fail-on high target-bad.json
-        continue-on-error: true
+      - run: go run ./cmd/samurai audit --format sarif target.json > samurai-clean.sarif
+      - name: Verify failing fixture trips the gate
+        shell: bash
+        run: |
+          set +e
+          go run ./cmd/samurai audit --format json --fail-on high target-bad.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+      - run: go run ./cmd/samurai audit --format sarif target-bad.json > samurai-bad.sarif
+      - uses: actions/upload-artifact@v4
+        with:
+          name: samurai-sarif-fixtures
+          path: '*.sarif'
