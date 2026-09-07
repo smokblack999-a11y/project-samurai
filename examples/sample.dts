@@ -1,0 +1,15 @@
+/dts-v1/;
+
+/ {
+    iommu0: iommu@10000000 {
+        compatible = "riscv,iommu";
+        status = "okay";
+        reg = <0x10000000 0x1000>;
+    };
+
+    pcie0: pcie@20000000 {
+        compatible = "pci-host-ecam-generic";
+        status = "okay";
+        reg = <0x20000000 0x100000>;
+    };
+};
