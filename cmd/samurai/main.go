@@ -36,12 +36,10 @@ func main() {
 	if os.Args[1] == "audit-dts" {
 		target, err := dts.Parse(fs.Arg(0), string(data))
 		if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(2) }
+		out := struct { Source string `json:"source"`; IOMMUCount int `json:"iommu_count"`; DMADevices int `json:"dma_devices"`; Interrupts int `json:"interrupts"`; Target audit.Target `json:"target"` }{target.EvidenceSource, len(target.IOMMUs), len(target.Devices), dts.InterruptCount(string(data)), target}
 		switch *format {
-		case "json":
-			out := struct { Source string `json:"source"`; IOMMUCount int `json:"iommu_count"`; DMADevices int `json:"dma_devices"`; Target audit.Target `json:"target"` }{target.EvidenceSource, len(target.IOMMUs), len(target.Devices), target}
-			enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(out)
-		case "text":
-			fmt.Printf("source=%s iommu_nodes=%d dma_references=%d\n", target.EvidenceSource, len(target.IOMMUs), len(target.Devices))
+		case "json": enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(out)
+		case "text": fmt.Printf("source=%s iommu_nodes=%d dma_references=%d interrupts=%d\n", out.Source, out.IOMMUCount, out.DMADevices, out.Interrupts)
 		default: fmt.Fprintln(os.Stderr, "audit-dts supports text or json"); os.Exit(2)
 		}
 		return
@@ -60,10 +58,7 @@ func main() {
 		enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(out)
 	case "sarif":
 		results := make([]sarifResult, 0, len(findings))
-		for _, f := range findings {
-			level := "warning"; if f.Severity == audit.Critical || f.Severity == audit.High { level = "error" }
-			results = append(results, sarifResult{RuleID:f.Rule, Level:level, Message:sarifMessage{Text:f.Title+": "+f.Evidence}, Properties:map[string]string{"severity":string(f.Severity), "normative_level":string(f.NormativeLevel), "confidence":f.Confidence, "spec":f.Spec, "remediation":f.Remediation}})
-		}
+		for _, f := range findings { level := "warning"; if f.Severity == audit.Critical || f.Severity == audit.High { level = "error" }; results = append(results, sarifResult{RuleID:f.Rule, Level:level, Message:sarifMessage{Text:f.Title+": "+f.Evidence}, Properties:map[string]string{"severity":string(f.Severity), "normative_level":string(f.NormativeLevel), "confidence":f.Confidence, "spec":f.Spec, "remediation":f.Remediation}}) }
 		out := sarifLog{Version:"2.1.0", Schema:"https://json.schemastore.org/sarif-2.1.0.json", Runs:[]sarifRun{{Tool:sarifTool{Driver:sarifDriver{Name:"SamuraiOS", Version:"0.1.0"}}, Results:results}}}
 		enc := json.NewEncoder(os.Stdout); enc.SetIndent("", "  "); _ = enc.Encode(out)
 	case "text":
