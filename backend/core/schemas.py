@@ -26,12 +26,34 @@ class ValidationResult(BaseModel):
 
 class ConfirmItem(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    sku: str | None = Field(default=None, max_length=100)
     quantity: float = Field(gt=0, le=1_000_000)
     unit_price_minor: int = Field(ge=0)
     currency: str = Field(default="KZT", min_length=3, max_length=3)
 
 class ConfirmRequest(BaseModel):
     items: list[ConfirmItem] = Field(min_length=1, max_length=500)
+
+class MatchItem(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    sku: str | None = Field(default=None, max_length=100)
+    currency: str = Field(default="KZT", min_length=3, max_length=3)
+
+class MatchRequest(BaseModel):
+    items: list[MatchItem] = Field(min_length=1, max_length=500)
+
+class MatchCandidate(BaseModel):
+    inventory_id: int
+    name: str
+    sku: str | None
+    score: float = Field(ge=0, le=1)
+    reason: str
+
+class MatchResult(BaseModel):
+    input_name: str
+    input_sku: str | None
+    candidates: list[MatchCandidate]
+    decision: str
 
 class SalePriceUpdate(BaseModel):
     sale_price_minor: int = Field(ge=0)
