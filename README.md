@@ -12,8 +12,9 @@ go run ./cmd/samurai audit target.json
 go run ./cmd/samurai audit --format json target-bad.json
 go run ./cmd/samurai audit --format sarif target-bad.json
 go run ./cmd/samurai audit --format json --fail-on high target-bad.json
-go run ./cmd/samurai audit-dts --format json examples/sample.dts
 go run ./cmd/samurai audit-dts --format json fixtures/board.dts
+go run ./cmd/samurai audit-regs --format json fixtures/iommu-regs.json
+go run ./cmd/samurai audit-regs --format sarif fixtures/iommu-regs.json
 ```
 
 Exit code `1` means the selected severity gate was triggered. CI verifies this with an intentionally failing fixture.
@@ -38,24 +39,24 @@ The baseline covers:
 
 Every finding carries severity, normative level, confidence, evidence, remediation and evidence provenance when supplied. `SARIF 2.1.0` output is available for CI/security tooling integration.
 
-## Real input milestone: DTS
+## Real input milestone: DTS + register evidence
 
-The repository now contains a deliberately small Linux Device Tree source evidence parser under `internal/dts`. It extracts IOMMU-shaped node count, `compatible` strings, `iommus` references, and interrupt declarations. It does **not** claim to be a complete DTS compiler and does not infer compliance from missing properties.
+The repository contains a deliberately small Linux Device Tree source evidence parser under `internal/dts`. It extracts IOMMU-shaped node count, `compatible` strings, `iommus` references, and interrupt declarations. It does **not** claim to be a complete DTS compiler and does not infer compliance from missing properties.
 
-Use `audit-dts` to inspect raw evidence before it is mapped into the normalized audit model. `examples/sample.dts` and `fixtures/board.dts` are regression fixtures.
+The repository also contains a conservative normalized IOMMU register/capability evidence adapter under `internal/regdump`. It maps only explicitly supplied register-derived values into the audit model; unknown fields stay unknown instead of being guessed as compliant or non-compliant.
 
-The next adapter step is to map parsed DTS evidence into the normalized IOMMU model with explicit provenance such as `file`, `node`, `property`, and extraction method. A `.dtb` binary decoder should be added only after the source adapter is stable.
+Use `audit-dts` and `audit-regs` to inspect evidence before it reaches the deterministic rules. `fixtures/board.dts` and `fixtures/iommu-regs.json` are regression fixtures.
 
 ## Kill-critic boundary
 
-This is an engineering MVP, not a certification claim. The commercial bottleneck is now clear: **replace hand-authored JSON with real platform evidence**.
+This is an engineering MVP, not a certification claim. The commercial bottleneck is now clear: **replace hand-authored target JSON with defensible platform evidence and reproducible findings**.
 
 Next sequence:
 
-1. Map DTS evidence into the normalized audit model.
-2. Add IOMMU register/capability dump ingestion.
-3. Add evidence provenance: source file, node/register/offset and extraction method.
-4. Expand normative coverage only where the adapter can produce defensible evidence.
+1. Map DTS evidence into the normalized audit model with node/property provenance.
+2. Map real MMIO/register captures into capability fields with register/offset provenance.
+3. Add `.dtb` decoding only after DTS source parsing is stable.
+4. Expand normative coverage only where the adapters can produce defensible evidence.
 5. Add reproducible fixtures from real or emulated RISC-V systems.
 6. Harden SARIF + CI security gating for SoC/vendor integration pipelines.
 7. Add optional OpenAI explanation/report generation only after deterministic findings exist.
