@@ -31,6 +31,7 @@ def init_db():
         conn.execute("""CREATE TABLE IF NOT EXISTS inventory(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
+            sku TEXT,
             quantity REAL NOT NULL,
             unit_price_minor INTEGER NOT NULL,
             sale_price_minor INTEGER,
@@ -40,6 +41,8 @@ def init_db():
             UNIQUE(name, currency)
         )""")
         _add_column_if_missing(conn, "inventory", "sale_price_minor", "INTEGER")
+        _add_column_if_missing(conn, "inventory", "sku", "TEXT")
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_inventory_sku_currency ON inventory(sku, currency)")
         conn.execute("""CREATE TABLE IF NOT EXISTS inventory_ledger(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             inventory_id INTEGER NOT NULL,
