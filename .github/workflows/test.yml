@@ -16,6 +16,12 @@ jobs:
       - run: go build ./cmd/samurai
       - run: go run ./cmd/samurai audit --format json target.json
       - run: go run ./cmd/samurai audit --format sarif target.json > samurai-clean.sarif
+      - name: Verify DTS evidence extraction
+        shell: bash
+        run: |
+          go run ./cmd/samurai audit-dts --format json fixtures/board.dts > board-evidence.json
+          grep -q '"iommu_count": 1' board-evidence.json
+          grep -q '"dma_devices": 1' board-evidence.json
       - name: Verify failing fixture trips the gate
         shell: bash
         run: |
