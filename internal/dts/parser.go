@@ -9,9 +9,6 @@ import (
 	"strings"
 )
 
-// Node is a deliberately small device-tree representation. It preserves node
-// names, compatible strings, status and raw properties needed by the first
-// IOMMU evidence adapter without pretending to be a full DTB implementation.
 type Node struct {
 	Name       string
 	Compatible []string
@@ -19,7 +16,8 @@ type Node struct {
 	Properties map[string]string
 }
 
-var nodeRE = regexp.MustCompile(`^\s*([A-Za-z0-9,._+@/-]+)\s*\{`)
+// This is intentionally a small source-evidence parser, not a complete DTS parser.
+var nodeRE = regexp.MustCompile(`^\s*(?:[A-Za-z0-9_]+:\s*)?([A-Za-z0-9,._+@/-]+)\s*\{`)
 var propRE = regexp.MustCompile(`^\s*([A-Za-z0-9,._+?#/-]+)\s*=\s*(.*);\s*$`)
 
 func Parse(r io.Reader) ([]Node, error) {
@@ -39,10 +37,7 @@ func Parse(r io.Reader) ([]Node, error) {
 			continue
 		}
 		if x == "};" || x == "}" {
-			if cur != nil {
-				out = append(out, *cur)
-				cur = nil
-			}
+			if cur != nil { out = append(out, *cur); cur = nil }
 			if depth > 0 { depth-- }
 			continue
 		}
@@ -77,10 +72,7 @@ func firstString(v string) string {
 }
 
 func U32(value string) (uint32, error) {
-	value = strings.TrimSpace(value)
-	value = strings.TrimPrefix(value, "<")
-	value = strings.TrimSuffix(value, ">")
-	value = strings.TrimSpace(value)
+	value = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(value, "<"), ">"))
 	if strings.HasPrefix(value, "0x") || strings.HasPrefix(value, "0X") { n, err := strconv.ParseUint(value[2:], 16, 32); return uint32(n), err }
 	return 0, fmt.Errorf("unsupported numeric value %q", value)
 }
