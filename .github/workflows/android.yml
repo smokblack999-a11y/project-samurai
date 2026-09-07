@@ -13,11 +13,24 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: sudo apt-get update && sudo apt-get install -y openjdk-17-jdk
-      - run: pip install buildozer cython==3.0.11
-      - working-directory: android
-        run: buildozer android debug
-      - uses: actions/upload-artifact@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake cmake libffi-dev libltdl-dev libncurses5-dev \
+            libssl-dev libtool pkg-config unzip zip zlib1g-dev
+      - name: Install Buildozer
+        run: python -m pip install --upgrade pip buildozer cython==3.0.11
+      - name: Build debug APK
+        working-directory: android
+        run: buildozer -v android debug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: stockscan-debug-apk
           path: android/bin/*.apk
+          if-no-files-found: error
