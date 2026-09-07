@@ -28,6 +28,14 @@ jobs:
           go run ./cmd/samurai audit-regs --format json fixtures/iommu-regs.json > regs-evidence.json
           grep -q '"phys_addr_bits": 48' regs-evidence.json
           grep -q '"pasid_supported": true' regs-evidence.json
+      - name: Verify bad register evidence trips the gate
+        shell: bash
+        run: |
+          set +e
+          go run ./cmd/samurai audit-regs --format json --fail-on high fixtures/iommu-regs-bad.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
       - name: Verify failing fixture trips the gate
         shell: bash
         run: |
