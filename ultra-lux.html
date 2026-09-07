@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0908">
+<title>ULTRA LUX — SamuraiOS</title>
+<style>
+:root{--void:#0a0908;--panel:#17140f;--panel2:#1d1912;--gold:#c9a24b;--bright:#e8c876;--wine:#6e1f2a;--text:#ece3cd;--muted:#8a8070;--line:rgba(201,162,75,.24)}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -10%,#302515 0,#0a0908 48%);color:var(--text);font-family:Georgia,'Times New Roman',serif}body{padding:18px;overflow-x:hidden}.app{max-width:1100px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:8px 2px 16px}.brand{letter-spacing:.16em;color:var(--bright);font-weight:700}.sub{font:11px monospace;color:var(--muted);letter-spacing:.12em}.status{display:flex;align-items:center;gap:8px;font:11px monospace;color:#b9a982}.dot{width:8px;height:8px;border-radius:50%;background:#65a56b;box-shadow:0 0 12px #65a56b}.hero{padding:30px 4px 24px}.hero h1{font-size:clamp(30px,7vw,62px);margin:0;color:var(--bright);letter-spacing:.06em}.hero p{margin:8px 0 0;color:var(--muted);font-size:17px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:linear-gradient(145deg,rgba(40,32,21,.94),rgba(20,17,13,.98));border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 12px 35px #0008}.label{font:10px monospace;color:var(--muted);letter-spacing:.12em}.value{font-size:28px;color:var(--bright);margin-top:8px}.unit{font-size:12px;color:var(--muted)}.main{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-top:14px}.panel{background:rgba(23,20,15,.94);border:1px solid var(--line);border-radius:12px;padding:20px}.panel h2{margin:0 0 16px;color:var(--bright);font-size:20px}.row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid rgba(201,162,75,.12);gap:12px}.row:last-child{border-bottom:0}.name{font-size:16px}.desc{font:10px monospace;color:var(--muted);margin-top:4px}.switch{appearance:none;width:44px;height:24px;border-radius:20px;background:#332d24;border:1px solid var(--line);position:relative;cursor:pointer}.switch:after{content:'';position:absolute;width:18px;height:18px;top:2px;left:2px;border-radius:50%;background:#776c58;transition:.2s}.switch:checked{background:var(--wine)}.switch:checked:after{left:22px;background:var(--bright)}button{width:100%;border:1px solid var(--gold);background:linear-gradient(180deg,#3b2d18,#241b10);color:var(--bright);padding:13px;border-radius:8px;font:600 13px Georgia;cursor:pointer;margin-top:9px}button:active{transform:translateY(1px)}.danger{border-color:#8b3a45;background:#34151a}.log{height:230px;overflow:auto;background:#0b0a08;border:1px solid #30271b;border-radius:8px;padding:12px;font:11px/1.65 monospace;color:#b9a982;white-space:pre-wrap}.footer{padding:22px 2px;text-align:center;color:#655d50;font:10px monospace;letter-spacing:.08em}.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:#241d13;border:1px solid var(--gold);color:var(--bright);padding:10px 16px;border-radius:8px;font:12px monospace;transition:.25s}.toast.show{opacity:1;transform:translate(-50%,0)}@media(max-width:760px){body{padding:12px}.grid{grid-template-columns:repeat(2,1fr)}.main{grid-template-columns:1fr}.hero{padding-top:24px}.card{padding:14px}.value{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top"><div><div class="brand">SAMURAIOS / ULTRA LUX</div><div class="sub">CONTROL SURFACE • LOCAL FIRST</div></div><div class="status"><i class="dot"></i><span id="state">READY</span></div></header>
+<section class="hero"><h1>ULTRA LUX</h1><p>Премиальная панель управления SamuraiOS</p></section>
+<section class="grid">
+<div class="card"><div class="label">SYSTEM</div><div class="value" id="sys">100%</div><div class="unit">оперативность</div></div>
+<div class="card"><div class="label">SERVICES</div><div class="value" id="services">4/4</div><div class="unit">активны</div></div>
+<div class="card"><div class="label">SECURITY</div><div class="value">HIGH</div><div class="unit">локальный режим</div></div>
+<div class="card"><div class="label">VERSION</div><div class="value">1.0</div><div class="unit">ULTRA LUX</div></div>
+</section>
+<section class="main">
+<div class="panel"><h2>Модули</h2>
+<div class="row"><div><div class="name">AI Core</div><div class="desc">локальный управляющий контур</div></div><input class="switch" type="checkbox" checked onchange="toggle(this,'AI Core')"></div>
+<div class="row"><div><div class="name">Auto Diagnostics</div><div class="desc">проверка состояния компонентов</div></div><input class="switch" type="checkbox" checked onchange="toggle(this,'Auto Diagnostics')"></div>
+<div class="row"><div><div class="name">API Gateway</div><div class="desc">готовность внешнего API</div></div><input class="switch" type="checkbox" checked onchange="toggle(this,'API Gateway')"></div>
+<div class="row"><div><div class="name">Safe Mode</div><div class="desc">минимальный режим выполнения</div></div><input class="switch" type="checkbox" onchange="toggle(this,'Safe Mode')"></div>
+</div>
+<div class="panel"><h2>Управление</h2><button onclick="runDiag()">ЗАПУСТИТЬ ДИАГНОСТИКУ</button><button onclick="testApi()">ТЕСТ API</button><button onclick="exportState()">ЭКСПОРТ СОСТОЯНИЯ</button><button class="danger" onclick="resetPanel()">СБРОС ПАНЕЛИ</button><h2 style="margin-top:20px">Журнал</h2><div class="log" id="log">[ULTRA] dashboard initialized\n[ULTRA] local state loaded\n</div></div>
+</section>
+<footer class="footer">SAMURAIOS • ULTRA LUX • NO REMOTE EXECUTION BY DEFAULT</footer>
+</div><div class="toast" id="toast"></div>
+<script>
+const logEl=document.getElementById('log');
+function log(s){logEl.textContent+=`[${new Date().toLocaleTimeString()}] ${s}\n`;logEl.scrollTop=logEl.scrollHeight}
+function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800)}
+function toggle(el,name){log(`${name}: ${el.checked?'ON':'OFF'}`);toast(`${name}: ${el.checked?'ON':'OFF'}`);document.getElementById('services').textContent=[...document.querySelectorAll('.switch')].filter(x=>x.checked).length+'/4'}
+function runDiag(){document.getElementById('state').textContent='DIAGNOSTIC';log('diagnostics started');setTimeout(()=>{document.getElementById('state').textContent='READY';log('diagnostics complete: OK');toast('Диагностика: OK')},700)}
+function testApi(){log('API test: local interface check');toast('API test: LOCAL OK')}
+function exportState(){const data={app:'SamuraiOS ULTRA LUX',time:new Date().toISOString(),modules:[...document.querySelectorAll('.switch')].map((x,i)=>({index:i,enabled:x.checked}))};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='ultra-lux-state.json';a.click();URL.revokeObjectURL(a.href);log('state exported')}
+function resetPanel(){document.querySelectorAll('.switch').forEach((x,i)=>x.checked=i<3);document.getElementById('services').textContent='3/4';document.getElementById('state').textContent='READY';log('panel state reset');toast('Панель сброшена')}
+</script>
+</body></html>
