@@ -1,3 +1,3 @@
 module github.com/smokblack999-a11y/project-samurai
 
-go 1.23
+go 1.27
