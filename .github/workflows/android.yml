@@ -1,0 +1,23 @@
+name: Android APK
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: sudo apt-get update && sudo apt-get install -y openjdk-17-jdk
+      - run: pip install buildozer cython==3.0.11
+      - working-directory: android
+        run: buildozer android debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stockscan-debug-apk
+          path: android/bin/*.apk
