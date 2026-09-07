@@ -10,4 +10,19 @@ func TestToTargetPreservesUnknowns(t *testing.T) {
 	if target.IOMMUs[0].MSI { t.Fatal("unknown MSI must not become true") }
 }
 
+func TestValidateAcceptsMUSTEvidence(t *testing.T) {
+	d := Dump{IOMMUs: []IOMMUDump{{Name: "i0", Enabled: ptr(true), DeviceIDBits: ptr(16), PhysAddrBits: ptr(48), MSI: ptr(true), ResetMode: ptr("Off"), PMPEnforced: ptr(true), PASIDSupported: ptr(false)}}}
+	if err := d.Validate(); err != nil { t.Fatal(err) }
+}
+
+func TestValidateRejectsMissingMUSTEvidence(t *testing.T) {
+	d := Dump{IOMMUs: []IOMMUDump{{Name: "i0", Enabled: ptr(true), DeviceIDBits: ptr(16), PhysAddrBits: ptr(48), ResetMode: ptr("Off"), PMPEnforced: ptr(true), PASIDSupported: ptr(false)}}}
+	if err := d.Validate(); err == nil { t.Fatal("expected missing MSI evidence to be rejected") }
+}
+
+func TestValidateRequiresPASIDWidthWhenSupported(t *testing.T) {
+	d := Dump{IOMMUs: []IOMMUDump{{Name: "i0", Enabled: ptr(true), DeviceIDBits: ptr(16), PhysAddrBits: ptr(48), MSI: ptr(true), ResetMode: ptr("Off"), PMPEnforced: ptr(true), PASIDSupported: ptr(true)}}}
+	if err := d.Validate(); err == nil { t.Fatal("expected missing PASID width to be rejected") }
+}
+
 func ptr[T any](v T) *T { return &v }
