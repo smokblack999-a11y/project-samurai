@@ -83,3 +83,5 @@ jobs:
           name: stockscan-debug-apk
           path: android/bin/*.apk
           if-no-files-found: error
+
+# CI trigger: verify Android APK pipeline on the fixed SDK/NDK configuration.
