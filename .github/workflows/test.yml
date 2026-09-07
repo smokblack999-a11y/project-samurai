@@ -22,6 +22,12 @@ jobs:
           go run ./cmd/samurai audit-dts --format json fixtures/board.dts > board-evidence.json
           grep -q '"iommu_count": 1' board-evidence.json
           grep -q '"dma_devices": 1' board-evidence.json
+      - name: Verify register evidence adapter
+        shell: bash
+        run: |
+          go run ./cmd/samurai audit-regs --format json fixtures/iommu-regs.json > regs-evidence.json
+          grep -q '"phys_addr_bits": 48' regs-evidence.json
+          grep -q '"pasid_supported": true' regs-evidence.json
       - name: Verify failing fixture trips the gate
         shell: bash
         run: |
