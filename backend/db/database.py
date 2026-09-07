@@ -15,7 +15,14 @@ def connect():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=10000")
     return conn
+
+
+def _add_column_if_missing(conn, table, column, definition):
+    columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def init_db():
@@ -26,11 +33,13 @@ def init_db():
             name TEXT NOT NULL,
             quantity REAL NOT NULL,
             unit_price_minor INTEGER NOT NULL,
+            sale_price_minor INTEGER,
             currency TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(name, currency)
         )""")
+        _add_column_if_missing(conn, "inventory", "sale_price_minor", "INTEGER")
         conn.execute("""CREATE TABLE IF NOT EXISTS inventory_ledger(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             inventory_id INTEGER NOT NULL,
