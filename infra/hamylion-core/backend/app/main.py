@@ -1,15 +1,18 @@
+import json
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from .auth import validate_api_key
+from .config import settings
 from .db import SessionLocal, engine
 from .models import Base, Event
 from .queue import enqueue
+from .reliability import verify_signature
 from .schemas import EventRequest, EventResponse
 from .websocket import manager
 
@@ -42,20 +45,12 @@ async def ready():
 @app.post('/v1/events', response_model=EventResponse)
 async def create_event(req: EventRequest, project_id: str = Depends(validate_api_key)):
     async with SessionLocal() as s:
-        existing = (
-            await s.execute(
-                select(Event).where(
-                    Event.project_id == project_id,
-                    Event.idempotency_key == req.idempotency_key,
-                )
-            )
-        ).scalar_one_or_none()
+        existing = (await s.execute(select(Event).where(
+            Event.project_id == project_id,
+            Event.idempotency_key == req.idempotency_key,
+        ))).scalar_one_or_none()
         if existing:
-            return EventResponse(
-                event_id=existing.id,
-                status=existing.status,
-                replayed=True,
-            )
+            return EventResponse(event_id=existing.id, status=existing.status, replayed=True)
 
         eid = 'evt_' + uuid.uuid4().hex
         event = Event(
@@ -70,19 +65,11 @@ async def create_event(req: EventRequest, project_id: str = Depends(validate_api
             await s.commit()
         except IntegrityError:
             await s.rollback()
-            existing = (
-                await s.execute(
-                    select(Event).where(
-                        Event.project_id == project_id,
-                        Event.idempotency_key == req.idempotency_key,
-                    )
-                )
-            ).scalar_one()
-            return EventResponse(
-                event_id=existing.id,
-                status=existing.status,
-                replayed=True,
-            )
+            existing = (await s.execute(select(Event).where(
+                Event.project_id == project_id,
+                Event.idempotency_key == req.idempotency_key,
+            ))).scalar_one()
+            return EventResponse(event_id=existing.id, status=existing.status, replayed=True)
 
     try:
         await enqueue({'id': eid, 'project_id': project_id, 'type': req.type, 'payload': req.payload, 'attempt': 1})
@@ -90,20 +77,74 @@ async def create_event(req: EventRequest, project_id: str = Depends(validate_api
             await s.execute(update(Event).where(Event.id == eid).values(published_at=datetime.utcnow()))
             await s.commit()
     except Exception:
-        # The durable DB record remains queued; the worker can recover publication.
         pass
 
     return EventResponse(event_id=eid, status='queued')
 
 
+@app.post('/v1/github/webhook')
+async def github_webhook(
+    request: Request,
+    x_hub_signature_256: str | None = Header(default=None),
+    x_github_delivery: str | None = Header(default=None),
+    x_github_event: str | None = Header(default=None),
+):
+    if not settings.GITHUB_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail='GITHUB_WEBHOOK_SECRET is not configured')
+
+    body = await request.body()
+    if not verify_signature(settings.GITHUB_WEBHOOK_SECRET, body, x_hub_signature_256 or ''):
+        raise HTTPException(status_code=401, detail='invalid GitHub webhook signature')
+    if not x_github_delivery:
+        raise HTTPException(status_code=400, detail='missing X-GitHub-Delivery')
+
+    payload = json.loads(body.decode('utf-8'))
+    event_type = 'github.' + (x_github_event or 'unknown')
+    project_id = str(payload.get('repository', {}).get('full_name') or 'github')
+    eid = 'evt_' + uuid.uuid4().hex
+
+    async with SessionLocal() as s:
+        existing = (await s.execute(select(Event).where(
+            Event.project_id == project_id,
+            Event.idempotency_key == x_github_delivery,
+        ))).scalar_one_or_none()
+        if existing:
+            return {'event_id': existing.id, 'status': existing.status, 'replayed': True}
+
+        s.add(Event(
+            id=eid,
+            project_id=project_id,
+            event_type=event_type,
+            idempotency_key=x_github_delivery,
+            payload=payload,
+        ))
+        try:
+            await s.commit()
+        except IntegrityError:
+            await s.rollback()
+            existing = (await s.execute(select(Event).where(
+                Event.project_id == project_id,
+                Event.idempotency_key == x_github_delivery,
+            ))).scalar_one()
+            return {'event_id': existing.id, 'status': existing.status, 'replayed': True}
+
+    try:
+        await enqueue({'id': eid, 'project_id': project_id, 'type': event_type, 'payload': payload, 'attempt': 1})
+        async with SessionLocal() as s:
+            await s.execute(update(Event).where(Event.id == eid).values(published_at=datetime.utcnow()))
+            await s.commit()
+    except Exception:
+        pass
+
+    return {'event_id': eid, 'status': 'queued', 'delivery_id': x_github_delivery}
+
+
 @app.post('/v1/events/{event_id}/replay')
 async def replay_event(event_id: str, project_id: str = Depends(validate_api_key)):
     async with SessionLocal() as s:
-        event = (
-            await s.execute(
-                select(Event).where(Event.id == event_id, Event.project_id == project_id)
-            )
-        ).scalar_one_or_none()
+        event = (await s.execute(select(Event).where(
+            Event.id == event_id, Event.project_id == project_id
+        ))).scalar_one_or_none()
         if not event:
             return {'error': 'not_found'}
         event.status = 'queued'
@@ -111,13 +152,7 @@ async def replay_event(event_id: str, project_id: str = Depends(validate_api_key
         event.next_attempt_at = None
         event.dead_lettered_at = None
         await s.commit()
-        payload = {
-            'id': event.id,
-            'project_id': event.project_id,
-            'type': event.event_type,
-            'payload': event.payload,
-            'attempt': event.attempts + 1,
-        }
+        payload = {'id': event.id, 'project_id': event.project_id, 'type': event.event_type, 'payload': event.payload, 'attempt': event.attempts + 1}
 
     await enqueue(payload)
     async with SessionLocal() as s:
@@ -129,11 +164,9 @@ async def replay_event(event_id: str, project_id: str = Depends(validate_api_key
 @app.get('/v1/events/{event_id}')
 async def get_event(event_id: str, project_id: str = Depends(validate_api_key)):
     async with SessionLocal() as s:
-        e = (
-            await s.execute(
-                select(Event).where(Event.id == event_id, Event.project_id == project_id)
-            )
-        ).scalar_one_or_none()
+        e = (await s.execute(select(Event).where(
+            Event.id == event_id, Event.project_id == project_id
+        ))).scalar_one_or_none()
     if not e:
         return {'error': 'not_found'}
     return {
