@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from app.config import settings
 from app.db import SessionLocal
 from app.models import Delivery, Event, WebSocketClient
-from app.queue import GROUP, STREAM, ack_and_cleanup, client, drain_due_retries, enqueue, ensure_group, reclaim_idle
+from app.queue import GROUP, STREAM, ack_and_cleanup, client, drain_due_retries, enqueue, enqueue_dlq, ensure_group, reclaim_idle, schedule_retry
 
 from app.websocket import manager
 
@@ -97,14 +97,40 @@ async def process(mid,fields):
             await ack_and_cleanup(mid)
             return
 
-    await materialize_deliveries(event)
-
-    async with SessionLocal() as s:
-        await s.execute(update(Event).where(Event.id==eid).values(
-            status='processed',attempts=Event.attempts+1,last_error=None
-        ))
-        await s.commit()
-    await ack_and_cleanup(mid)
+    try:
+        await materialize_deliveries(event)
+        async with SessionLocal() as s:
+            await s.execute(update(Event).where(Event.id==eid).values(
+                status='processed',attempts=Event.attempts+1,last_error=None
+            ))
+            await s.commit()
+        await ack_and_cleanup(mid)
+    except Exception as exc:
+        async with SessionLocal() as s:
+            record=await s.get(Event,eid)
+            attempt=(record.attempts if record else 0)+1
+            if attempt >= settings.MAX_RETRIES:
+                await s.execute(update(Event).where(Event.id==eid).values(
+                    status='dead_letter',attempts=attempt,last_error=str(exc),
+                    dead_lettered_at=datetime.utcnow()
+                ))
+                await s.commit()
+                await enqueue_dlq(event,str(exc))
+                await ack_and_cleanup(mid)
+            else:
+                await s.execute(update(Event).where(Event.id==eid).values(
+                    status='retrying',attempts=attempt,last_error=str(exc),
+                    next_attempt_at=datetime.fromtimestamp(time.time()+min(
+                        settings.RETRY_MAX_SECONDS,
+                        settings.RETRY_BASE_SECONDS*(2**(attempt-1))
+                    ))
+                ))
+                await s.commit()
+                await schedule_retry(event,time.time()+min(
+                    settings.RETRY_MAX_SECONDS,
+                    settings.RETRY_BASE_SECONDS*(2**(attempt-1))
+                ))
+                await ack_and_cleanup(mid)
 
 async def process_entries(entries):
     for mid,fields in entries:
