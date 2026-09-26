@@ -8,6 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from .auth import validate_api_key
+from .codeberg import parse_codeberg_rss
 from .config import settings
 from .db import SessionLocal, engine
 from .models import Base, Event
@@ -137,6 +138,67 @@ async def github_webhook(
         pass
 
     return {'event_id': eid, 'status': 'queued', 'delivery_id': x_github_delivery}
+
+
+@app.post('/v1/codeberg/rss')
+async def codeberg_rss(request: Request, project_id: str = Depends(validate_api_key)):
+    body = await request.body()
+    if len(body) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail='RSS payload too large')
+    try:
+        events = parse_codeberg_rss(body.decode('utf-8'))
+    except (UnicodeDecodeError, ValueError):
+        raise HTTPException(status_code=400, detail='invalid Codeberg RSS')
+
+    accepted = []
+    for item in events:
+        async with SessionLocal() as s:
+            existing = (await s.execute(select(Event).where(
+                Event.project_id == project_id,
+                Event.idempotency_key == item['idempotency_key'],
+            ))).scalar_one_or_none()
+            if existing:
+                accepted.append({'event_id': existing.id, 'replayed': True})
+                continue
+
+            eid = 'evt_' + uuid.uuid4().hex
+            s.add(Event(
+                id=eid,
+                project_id=project_id,
+                event_type=item['type'],
+                idempotency_key=item['idempotency_key'],
+                payload=item['payload'],
+            ))
+            try:
+                await s.commit()
+            except IntegrityError:
+                await s.rollback()
+                existing = (await s.execute(select(Event).where(
+                    Event.project_id == project_id,
+                    Event.idempotency_key == item['idempotency_key'],
+                ))).scalar_one()
+                accepted.append({'event_id': existing.id, 'replayed': True})
+                continue
+
+        try:
+            await enqueue({
+                'id': eid,
+                'project_id': project_id,
+                'type': item['type'],
+                'payload': item['payload'],
+                'attempt': 1,
+            })
+            async with SessionLocal() as s:
+                await s.execute(update(Event).where(Event.id == eid).values(
+                    published_at=datetime.utcnow()
+                ))
+                await s.commit()
+        except Exception:
+            pass
+
+        accepted.append({'event_id': eid, 'replayed': False})
+
+    return {'accepted': len(accepted), 'events': accepted}
 
 
 @app.post('/v1/events/{event_id}/replay')
