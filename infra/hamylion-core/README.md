@@ -10,6 +10,9 @@ HAMYLION is the durable event/runtime core for X10THINC.
 4. /ready is false until the database reports the expected Alembic revision.
 5. Redis is transport/recovery infrastructure, not the source of truth.
 6. Production deployments must replace development database credentials and API-key defaults.
+7. Redis Streams are transport only; they are never the sole durable copy of an event.
+8. Production API authentication uses database-backed, project-scoped keys; the environment key is bootstrap compatibility only.
+9. GitHub webhooks must use an explicit repository allowlist when more than one repository can share infrastructure.
 
 ## Local run
 
@@ -28,4 +31,6 @@ Before exposing the service publicly, configure:
 - a real GitHub webhook secret;
 - required CI/security checks on the deployment repository.
 
-Do not use hm_dev_change_me outside local development.
+Provision a project-scoped key after migration with `python provision_api_key.py PROJECT_ID NAME`; the plaintext token is emitted once and only its SHA-256 hash is persisted.
+
+Do not use `hm_dev_change_me` outside local development.

@@ -28,3 +28,4 @@ jobs:
       - run: python -m pytest -q
       - run: python -m compileall -q app worker.py
       - run: alembic -c ../alembic.ini heads
+      - run: python -m compileall -q app worker.py provision_api_key.py

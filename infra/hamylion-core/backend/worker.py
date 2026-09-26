@@ -11,6 +11,7 @@ from app.models import Event
 from app.queue import (
     GROUP,
     STREAM,
+    ack_and_cleanup,
     client,
     drain_due_retries,
     enqueue,
@@ -22,7 +23,6 @@ from app.queue import (
 from app.reliability import backoff_seconds
 from app.websocket import manager
 
-
 async def publish_unpublished(limit: int = 50):
     async with SessionLocal() as s:
         rows = (
@@ -31,29 +31,24 @@ async def publish_unpublished(limit: int = 50):
                 .where(Event.status == 'queued', Event.published_at.is_(None))
                 .order_by(Event.created_at)
                 .limit(limit)
+                .with_for_update(skip_locked=True)
             )
         ).scalars().all()
 
-    for record in rows:
-        payload = {
-            'id': record.id,
-            'project_id': record.project_id,
-            'type': record.event_type,
-            'payload': record.payload,
-            'attempt': max(1, record.attempts + 1),
-        }
-        try:
-            await enqueue(payload)
-            async with SessionLocal() as s:
-                await s.execute(
-                    update(Event).where(Event.id == record.id).values(
-                        published_at=datetime.utcnow()
-                    )
-                )
-                await s.commit()
-        except Exception as exc:
-            print(f'hamylion publish error {record.id}: {exc}')
-
+        for record in rows:
+            payload = {
+                'id': record.id,
+                'project_id': record.project_id,
+                'type': record.event_type,
+                'payload': record.payload,
+                'attempt': max(1, record.attempts + 1),
+            }
+            try:
+                await enqueue(payload)
+                record.published_at = datetime.utcnow()
+            except Exception as exc:
+                record.last_error = str(exc)
+        await s.commit()
 
 async def process(mid, fields):
     event = json.loads(fields['event'])
@@ -62,10 +57,10 @@ async def process(mid, fields):
     async with SessionLocal() as s:
         record = await s.get(Event, eid)
         if not record:
-            await client.xack(STREAM, GROUP, mid)
+            await ack_and_cleanup(mid)
             return
         if record.status in {'delivered', 'dead_letter'}:
-            await client.xack(STREAM, GROUP, mid)
+            await ack_and_cleanup(mid)
             return
         attempt = record.attempts + 1
 
@@ -107,7 +102,7 @@ async def process(mid, fields):
                 )
                 await s.commit()
                 await schedule_retry({**event, 'attempt': attempt + 1}, time.time() + delay)
-        await client.xack(STREAM, GROUP, mid)
+        await ack_and_cleanup(mid)
         return
 
     async with SessionLocal() as s:
@@ -122,8 +117,7 @@ async def process(mid, fields):
         )
         await s.commit()
 
-    await client.xack(STREAM, GROUP, mid)
-
+    await ack_and_cleanup(mid)
 
 async def process_entries(entries):
     for mid, fields in entries:
@@ -131,7 +125,6 @@ async def process_entries(entries):
             await process(mid, fields)
         except Exception as exc:
             print(f'hamylion worker error: {exc}')
-
 
 async def main():
     await ensure_group()
@@ -160,7 +153,6 @@ async def main():
         except Exception as exc:
             print(f'hamylion worker loop error: {exc}')
             await asyncio.sleep(2)
-
 
 if __name__ == '__main__':
     asyncio.run(main())
