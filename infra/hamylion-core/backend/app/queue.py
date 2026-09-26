@@ -25,10 +25,14 @@ async def drain_due_retries(limit:int=50):
     members=await client.zrangebyscore(RETRY_ZSET,0,time.time(),start=0,num=limit)
     events=[]
     for member in members:
-        if await client.zrem(RETRY_ZSET,member):
-            events.append(json.loads(member))
-    for event in events:
-        await enqueue(event)
+        if not await client.zrem(RETRY_ZSET,member):
+            continue
+        event = json.loads(member)
+        try:
+            await enqueue(event)
+            events.append(event)
+        except Exception:
+            await client.zadd(RETRY_ZSET,{member: time.time() + 1})
     return events
 
 async def ensure_group():
