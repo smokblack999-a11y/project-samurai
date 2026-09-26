@@ -262,7 +262,11 @@ async def get_event(event_id: str, project_id: str = Depends(validate_api_key)):
 
 
 @app.websocket('/v1/ws')
-async def ws(websocket: WebSocket, project_id: str = 'default-project'):
+async def ws(websocket: WebSocket, project_id: str, x_api_key: str | None = Header(default=None)):
+    authenticated_project = await validate_api_key(x_api_key)
+    if project_id != authenticated_project:
+        await websocket.close(code=1008)
+        return
     await manager.connect(project_id, websocket)
     try:
         while True:
