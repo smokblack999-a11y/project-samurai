@@ -1,54 +1,31 @@
-# HAMYLION Core 3.1
+# HAMYLION Core
 
-Durable realtime event infrastructure for X10THINC and other projects.
+HAMYLION is the durable event/runtime core for X10THINC.
 
-## Architecture
+## Runtime contract
 
-Producer -> API -> PostgreSQL -> Redis Stream -> Worker -> WebSocket/Webhook adapters.
+1. PostgreSQL is the source of durable event state.
+2. Alembic owns schema lifecycle; the API and worker never create schema implicitly.
+3. The migrate Compose service must complete successfully before API/worker startup.
+4. /ready is false until the database reports the expected Alembic revision.
+5. Redis is transport/recovery infrastructure, not the source of truth.
+6. Production deployments must replace development database credentials and API-key defaults.
 
-PostgreSQL is the durable source of truth. Redis Streams is the asynchronous transport. The implementation now includes:
+## Local run
 
-- project-scoped idempotency keys;
-- durable publication marker / outbox recovery;
-- bounded exponential retry with durable Redis ZSET scheduling;
-- stale consumer recovery with XAUTOCLAIM;
-- explicit dead-letter stream;
-- replay endpoint;
-- readiness endpoint;
-- signed GitHub webhook ingestion using X-Hub-Signature-256;
-- GitHub delivery deduplication through X-GitHub-Delivery;
-- worker identity configuration;
-- reliability unit tests and CI syntax checks.
+    export HAMYLION_API_KEY='replace-me'
+    docker compose up --build
 
-## API
-
-POST /v1/events with type, payload, idempotency_key and X-API-Key.
-
-GET /v1/events/{event_id} returns durable processing state.
-
-POST /v1/events/{event_id}/replay requeues a stored event for operator recovery.
-
-POST /v1/github/webhook accepts signed GitHub webhook deliveries and uses the GitHub delivery GUID as the idempotency key.
-
-GET /health is liveness; GET /ready checks database readiness.
-
-## X10THINC
-
-X10THINC can publish normalized GitHub/Fireflies/HubSpot/Notion signals into HAMYLION instead of coupling its reasoning engine to a transport implementation.
+Schema migrations are applied by the migrate service. The API becomes ready only after revision 0001_events is applied.
 
 ## Production gate
 
-This hardening layer still does **not** by itself constitute an enterprise production deployment. Remaining work includes:
+Before exposing the service publicly, configure:
 
-1. database migrations instead of create_all at startup;
-2. real multi-tenant API-key records with rotation/revocation and hashed storage;
-3. rate limiting at the API edge;
-4. outbound destination registry with per-destination ACK state and SSRF-safe allowlisting;
-5. OpenTelemetry traces/metrics/log correlation;
-6. encrypted secret storage / secret manager integration;
-7. durable WebSocket delivery semantics where required by the product;
-8. integration tests covering crash/restart, duplicate delivery, replay, DLQ recovery and PostgreSQL/Redis failure;
-9. GitHub App installation lifecycle and least-privilege permission enforcement;
-10. sandboxed repair execution and X10THINK/Kill Critic verification before autonomous repository changes.
+- a managed PostgreSQL instance and non-default credentials;
+- a project-scoped API-key store/rotation mechanism;
+- explicit outbound host allowlists;
+- a real GitHub webhook secret;
+- required CI/security checks on the deployment repository.
 
-Never claim guaranteed delivery or autonomous remediation until those gates are verified in the deployed environment.
+Do not use hm_dev_change_me outside local development.
