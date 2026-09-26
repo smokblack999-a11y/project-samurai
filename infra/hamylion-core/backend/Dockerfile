@@ -4,5 +4,6 @@ COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/app ./app
 COPY backend/worker.py ./worker.py
+COPY backend/provision_api_key.py ./provision_api_key.py
 COPY alembic.ini ./alembic.ini
 COPY alembic ./alembic
