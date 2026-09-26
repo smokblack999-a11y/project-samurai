@@ -10,5 +10,8 @@ class Settings:
     RETRY_MAX_SECONDS=float(os.getenv('RETRY_MAX_SECONDS','300'))
     WORKER_NAME=os.getenv('HAMYLION_WORKER_NAME','worker-1')
     RECOVERY_IDLE_MS=int(os.getenv('RECOVERY_IDLE_MS','30000'))
+    OUTBOUND_ALLOWED_HOSTS={h.strip().lower() for h in os.getenv('HAMYLION_OUTBOUND_ALLOWED_HOSTS','').split(',') if h.strip()}
+    OUTBOUND_TIMEOUT_SECONDS=float(os.getenv('HAMYLION_OUTBOUND_TIMEOUT_SECONDS','10'))
+    OUTBOUND_MAX_RESPONSE_BYTES=int(os.getenv('HAMYLION_OUTBOUND_MAX_RESPONSE_BYTES','1048576'))
 
 settings=Settings()
