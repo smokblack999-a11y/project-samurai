@@ -1,0 +1,2 @@
+import { Problem } from "./types.js";
+export function inferRootCause(p:Problem):Problem{const text=p.evidence.map(e=>e.text).join(" ").toLowerCase();const rules:[RegExp,string][]=[[/slow|latency|timeout/,"performance or dependency bottleneck"],[/bug|error|crash|broken/,"defect or regression"],[/confus|hard to|unclear|ux/,"workflow or UX friction"],[/price|cost|expensive/,"pricing or value-perception friction"]];p.rootCause=rules.find(([r])=>r.test(text))?.[1]??"insufficient evidence; validate with customer";return p;}
