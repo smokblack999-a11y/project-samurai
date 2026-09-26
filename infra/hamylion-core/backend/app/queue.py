@@ -9,10 +9,13 @@ RETRY_ZSET='hamylion.retry'
 GROUP='hamylion-workers'
 
 async def enqueue(event:dict):
-    return await client.xadd(STREAM,{'event':json.dumps(event)},maxlen=100000,approximate=True)
+    # PostgreSQL remains the durable source of truth. Do not MAXLEN-trim the
+    # transport stream: Redis can otherwise delete payloads that are still
+    # pending in the consumer group's PEL.
+    return await client.xadd(STREAM,{'event':json.dumps(event)})
 
 async def enqueue_dlq(event:dict, reason:str):
-    return await client.xadd(DLQ_STREAM,{'event':json.dumps(event),'reason':reason},maxlen=100000,approximate=True)
+    return await client.xadd(DLQ_STREAM,{'event':json.dumps(event),'reason':reason})
 
 async def schedule_retry(event:dict, due_at:float):
     await client.zadd(RETRY_ZSET,{json.dumps(event,sort_keys=True):due_at})
@@ -40,3 +43,7 @@ async def reclaim_idle(min_idle_ms=None):
         min_idle_ms or settings.RECOVERY_IDLE_MS,
         '0-0',count=50
     )
+
+async def ack_and_cleanup(message_id: str):
+    await client.xack(STREAM,GROUP,message_id)
+    await client.xdel(STREAM,message_id)
