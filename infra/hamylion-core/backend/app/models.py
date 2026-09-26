@@ -36,3 +36,25 @@ class ApiKey(Base):
     created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
     expires_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     last_used_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
+
+
+class WebSocketClient(Base):
+    __tablename__='websocket_clients'
+    id:Mapped[str]=mapped_column(String(128),primary_key=True)
+    project_id:Mapped[str]=mapped_column(String(128),index=True)
+    active:Mapped[bool]=mapped_column(Boolean,default=True,index=True)
+    last_seen_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+    created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+
+class Delivery(Base):
+    __tablename__='event_deliveries'
+    __table_args__=(UniqueConstraint('event_id','client_id',name='uq_event_client_delivery'),)
+    id:Mapped[str]=mapped_column(String(64),primary_key=True)
+    event_id:Mapped[str]=mapped_column(String(64),ForeignKey('events.id',ondelete='CASCADE'),index=True)
+    project_id:Mapped[str]=mapped_column(String(128),index=True)
+    client_id:Mapped[str]=mapped_column(String(128),ForeignKey('websocket_clients.id',ondelete='CASCADE'),index=True)
+    status:Mapped[str]=mapped_column(String(32),default='pending',index=True)
+    attempts:Mapped[int]=mapped_column(Integer,default=0)
+    last_error:Mapped[str|None]=mapped_column(Text,nullable=True)
+    delivered_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
+    created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
