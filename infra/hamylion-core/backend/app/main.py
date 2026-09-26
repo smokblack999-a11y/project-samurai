@@ -1,3 +1,4 @@
+import xml.etree.ElementTree as ET
 import json
 import uuid
 from contextlib import asynccontextmanager
@@ -147,7 +148,7 @@ async def codeberg_rss(request: Request, project_id: str = Depends(validate_api_
         raise HTTPException(status_code=413, detail='RSS payload too large')
     try:
         events = parse_codeberg_rss(body.decode('utf-8'))
-    except (UnicodeDecodeError, ValueError):
+    except (UnicodeDecodeError, ValueError, ET.ParseError):
         raise HTTPException(status_code=400, detail='invalid Codeberg RSS')
 
     accepted = []
