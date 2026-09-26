@@ -6,6 +6,7 @@ from datetime import datetime
 
 from alembic.runtime.migration import MigrationContext
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
@@ -19,7 +20,7 @@ from .reliability import verify_signature
 from .schemas import EventRequest, EventResponse
 from .websocket import manager
 
-MIGRATION_HEAD = '0001_events'
+MIGRATION_HEAD = '0002_api_keys'
 
 
 @asynccontextmanager
@@ -42,7 +43,9 @@ async def ready():
             current = await conn.run_sync(
                 lambda sync_conn: MigrationContext.configure(sync_conn).get_current_revision()
             )
-        return {'ready': current == MIGRATION_HEAD, 'migration': current, 'required_migration': MIGRATION_HEAD}
+        if current != MIGRATION_HEAD:
+            return JSONResponse(status_code=503, content={'ready': False, 'migration': current, 'required_migration': MIGRATION_HEAD})
+        return {'ready': True, 'migration': current, 'required_migration': MIGRATION_HEAD}
     except Exception:
         return {'ready': False, 'migration': None, 'required_migration': MIGRATION_HEAD}
 
@@ -98,14 +101,22 @@ async def github_webhook(
         raise HTTPException(status_code=503, detail='GITHUB_WEBHOOK_SECRET is not configured')
 
     body = await request.body()
+    if len(body) > settings.WEBHOOK_MAX_BODY_BYTES:
+        raise HTTPException(status_code=413, detail='webhook payload too large')
     if not verify_signature(settings.GITHUB_WEBHOOK_SECRET, body, x_hub_signature_256 or ''):
         raise HTTPException(status_code=401, detail='invalid GitHub webhook signature')
     if not x_github_delivery:
         raise HTTPException(status_code=400, detail='missing X-GitHub-Delivery')
 
-    payload = json.loads(body.decode('utf-8'))
+    try:
+        payload = json.loads(body.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail='invalid GitHub webhook JSON')
+    repository = str(payload.get('repository', {}).get('full_name') or '').lower()
+    if not repository or (settings.GITHUB_ALLOWED_REPOSITORIES and repository not in settings.GITHUB_ALLOWED_REPOSITORIES):
+        raise HTTPException(status_code=403, detail='GitHub repository is not allowed')
     event_type = 'github.' + (x_github_event or 'unknown')
-    project_id = str(payload.get('repository', {}).get('full_name') or 'github')
+    project_id = repository
     eid = 'evt_' + uuid.uuid4().hex
 
     async with SessionLocal() as s:
