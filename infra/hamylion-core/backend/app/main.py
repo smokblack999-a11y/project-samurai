@@ -14,13 +14,13 @@ from .auth import validate_api_key
 from .codeberg import parse_codeberg_rss
 from .config import settings
 from .db import SessionLocal, engine
-from .models import Event
+from .models import Event, WebSocketClient
 from .queue import enqueue
 from .reliability import verify_signature
 from .schemas import EventRequest, EventResponse
 from .websocket import manager
 
-MIGRATION_HEAD = '0002_api_keys'
+MIGRATION_HEAD = '0003_event_deliveries'
 
 
 @asynccontextmanager
