@@ -7,6 +7,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://hamylion:hamylion@postgres:5432/hamylion
       REDIS_URL: redis://redis:6379/0
       HAMYLION_API_KEY: ${HAMYLION_API_KEY:-hm_dev_change_me}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      MAX_RETRIES: ${MAX_RETRIES:-5}
+      RETRY_BASE_SECONDS: ${RETRY_BASE_SECONDS:-2}
+      RETRY_MAX_SECONDS: ${RETRY_MAX_SECONDS:-300}
     depends_on: [postgres,redis]
   worker:
     build: ./backend
@@ -15,6 +19,11 @@ services:
       DATABASE_URL: postgresql+asyncpg://hamylion:hamylion@postgres:5432/hamylion
       REDIS_URL: redis://redis:6379/0
       HAMYLION_API_KEY: ${HAMYLION_API_KEY:-hm_dev_change_me}
+      MAX_RETRIES: ${MAX_RETRIES:-5}
+      RETRY_BASE_SECONDS: ${RETRY_BASE_SECONDS:-2}
+      RETRY_MAX_SECONDS: ${RETRY_MAX_SECONDS:-300}
+      HAMYLION_WORKER_NAME: ${HAMYLION_WORKER_NAME:-worker-1}
+      RECOVERY_IDLE_MS: ${RECOVERY_IDLE_MS:-30000}
     depends_on: [postgres,redis]
   postgres:
     image: postgres:16
