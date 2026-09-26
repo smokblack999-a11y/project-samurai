@@ -1,8 +1,9 @@
 import asyncio
 import json
+import time
 from datetime import datetime
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from app.config import settings
 from app.db import SessionLocal
@@ -12,6 +13,7 @@ from app.queue import (
     STREAM,
     client,
     drain_due_retries,
+    enqueue,
     enqueue_dlq,
     ensure_group,
     reclaim_idle,
@@ -19,6 +21,38 @@ from app.queue import (
 )
 from app.reliability import backoff_seconds
 from app.websocket import manager
+
+
+async def publish_unpublished(limit: int = 50):
+    async with SessionLocal() as s:
+        rows = (
+            await s.execute(
+                select(Event)
+                .where(Event.status == 'queued', Event.published_at.is_(None))
+                .order_by(Event.created_at)
+                .limit(limit)
+            )
+        ).scalars().all()
+
+    for record in rows:
+        payload = {
+            'id': record.id,
+            'project_id': record.project_id,
+            'type': record.event_type,
+            'payload': record.payload,
+            'attempt': max(1, record.attempts + 1),
+        }
+        try:
+            await enqueue(payload)
+            async with SessionLocal() as s:
+                await s.execute(
+                    update(Event).where(Event.id == record.id).values(
+                        published_at=datetime.utcnow()
+                    )
+                )
+                await s.commit()
+        except Exception as exc:
+            print(f'hamylion publish error {record.id}: {exc}')
 
 
 async def process(mid, fields):
@@ -33,7 +67,6 @@ async def process(mid, fields):
         if record.status in {'delivered', 'dead_letter'}:
             await client.xack(STREAM, GROUP, mid)
             return
-
         attempt = record.attempts + 1
 
     try:
@@ -69,11 +102,11 @@ async def process(mid, fields):
                         status='retrying',
                         attempts=attempt,
                         last_error=str(exc),
+                        next_attempt_at=datetime.fromtimestamp(time.time() + delay),
                     )
                 )
                 await s.commit()
-                retry_event = {**event, 'attempt': attempt + 1}
-                await schedule_retry(retry_event, __import__('time').time() + delay)
+                await schedule_retry({**event, 'attempt': attempt + 1}, time.time() + delay)
         await client.xack(STREAM, GROUP, mid)
         return
 
@@ -84,6 +117,7 @@ async def process(mid, fields):
                 attempts=attempt,
                 delivered_at=datetime.utcnow(),
                 last_error=None,
+                next_attempt_at=None,
             )
         )
         await s.commit()
@@ -96,15 +130,19 @@ async def process_entries(entries):
         try:
             await process(mid, fields)
         except Exception as exc:
-            # Keep the worker alive; the message remains recoverable until ACKed.
             print(f'hamylion worker error: {exc}')
 
 
 async def main():
     await ensure_group()
+    last_publish = 0.0
     while True:
         try:
-            await drain_due_retries()
+            now = time.time()
+            if now - last_publish >= 2:
+                await publish_unpublished()
+                await drain_due_retries()
+                last_publish = now
 
             claimed = await reclaim_idle()
             if claimed and len(claimed) == 2:
