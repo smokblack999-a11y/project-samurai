@@ -1,6 +1,8 @@
 FROM python:3.12-slim
 WORKDIR /app
-COPY requirements.txt .
+COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-COPY app ./app
-COPY worker.py .
+COPY backend/app ./app
+COPY backend/worker.py ./worker.py
+COPY alembic.ini ./alembic.ini
+COPY alembic ./alembic

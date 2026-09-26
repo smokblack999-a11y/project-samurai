@@ -4,6 +4,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 
+from alembic.runtime.migration import MigrationContext
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -12,17 +13,17 @@ from .auth import validate_api_key
 from .codeberg import parse_codeberg_rss
 from .config import settings
 from .db import SessionLocal, engine
-from .models import Base, Event
+from .models import Event
 from .queue import enqueue
 from .reliability import verify_signature
 from .schemas import EventRequest, EventResponse
 from .websocket import manager
 
+MIGRATION_HEAD = '0001_events'
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as c:
-        await c.run_sync(Base.metadata.create_all)
     yield
 
 
@@ -37,11 +38,13 @@ async def health():
 @app.get('/ready')
 async def ready():
     try:
-        async with SessionLocal() as s:
-            await s.execute(select(Event.id).limit(1))
-        return {'ready': True}
+        async with engine.connect() as conn:
+            current = await conn.run_sync(
+                lambda sync_conn: MigrationContext.configure(sync_conn).get_current_revision()
+            )
+        return {'ready': current == MIGRATION_HEAD, 'migration': current, 'required_migration': MIGRATION_HEAD}
     except Exception:
-        return {'ready': False}
+        return {'ready': False, 'migration': None, 'required_migration': MIGRATION_HEAD}
 
 
 @app.post('/v1/events', response_model=EventResponse)
