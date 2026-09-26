@@ -6,3 +6,4 @@ redis
 pydantic
 pytest
 httpx
+alembic
