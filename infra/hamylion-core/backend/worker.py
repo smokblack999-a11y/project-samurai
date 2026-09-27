@@ -3,166 +3,169 @@ import json
 import time
 import uuid
 from datetime import datetime
+
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Delivery, Event, WebSocketClient
-from app.queue import GROUP, STREAM, ack_and_cleanup, client, drain_due_retries, enqueue, enqueue_dlq, ensure_group, reclaim_idle, schedule_retry
-
+from app.models import Event, EventDelivery
+from app.queue import (
+    GROUP,
+    STREAM,
+    ack_and_cleanup,
+    client,
+    drain_due_retries,
+    enqueue,
+    enqueue_dlq,
+    ensure_group,
+    reclaim_idle,
+    schedule_retry,
+)
+from app.reliability import backoff_seconds
 from app.websocket import manager
 
-async def publish_unpublished(limit=50):
+class NoSubscribers(Exception):
+    pass
+
+async def publish_unpublished(limit: int = 50):
     async with SessionLocal() as s:
-        rows=(await s.execute(
-            select(Event).where(Event.status=='queued',Event.published_at.is_(None))
-            .order_by(Event.created_at).limit(limit).with_for_update(skip_locked=True)
-        )).scalars().all()
+        rows = (
+            await s.execute(
+                select(Event)
+                .where(Event.status == 'queued', Event.published_at.is_(None))
+                .order_by(Event.created_at)
+                .limit(limit)
+                .with_for_update(skip_locked=True)
+            )
+        ).scalars().all()
+
         for record in rows:
+            payload = {
+                'id': record.id,
+                'project_id': record.project_id,
+                'type': record.event_type,
+                'payload': record.payload,
+                'attempt': max(1, record.attempts + 1),
+            }
             try:
-                await enqueue({'id':record.id,'project_id':record.project_id,'type':record.event_type,'payload':record.payload,'attempt':max(1,record.attempts+1)})
-                record.published_at=datetime.utcnow()
+                await enqueue(payload)
+                record.published_at = datetime.utcnow()
             except Exception as exc:
-                record.last_error=str(exc)
+                record.last_error = str(exc)
         await s.commit()
 
-async def materialize_deliveries(event):
-    async with SessionLocal() as s:
-        clients=(await s.execute(
-            select(WebSocketClient).where(WebSocketClient.project_id==event['project_id'])
-        )).scalars().all()
-        for client in clients:
-            s.add(Delivery(
-                id='del_'+uuid.uuid4().hex,
-                event_id=event['id'],
-                project_id=event['project_id'],
-                client_id=client.id,
-                status='pending',
-            ))
-        try:
-            await s.commit()
-        except IntegrityError:
-            await s.rollback()
+async def _ensure_delivery(s, event_id: str, project_id: str):
+    delivery = (await s.execute(select(EventDelivery).where(
+        EventDelivery.event_id == event_id,
+        EventDelivery.project_id == project_id,
+    ))).scalar_one_or_none()
+    if delivery:
+        return delivery
+    delivery = EventDelivery(
+        id='dlv_' + uuid.uuid4().hex,
+        event_id=event_id,
+        project_id=project_id,
+        status='pending',
+    )
+    s.add(delivery)
+    try:
+        await s.flush()
+    except IntegrityError:
+        await s.rollback()
+        delivery = (await s.execute(select(EventDelivery).where(
+            EventDelivery.event_id == event_id,
+            EventDelivery.project_id == project_id,
+        ))).scalar_one()
+    return delivery
 
-async def deliver_pending():
-    async with SessionLocal() as s:
-        rows=(await s.execute(
-            select(Delivery).where(Delivery.status=='pending')
-            .order_by(Delivery.created_at).limit(100)
-        )).scalars().all()
+async def process(mid, fields):
+    event = json.loads(fields['event'])
+    eid = event['id']
 
-    for delivery in rows:
-        connection=await manager.find(delivery.project_id,delivery.client_id)
-        if not connection:
-            continue
-        async with SessionLocal() as s:
-            event=await s.get(Event,delivery.event_id)
-        if not event:
-            continue
-        try:
-            await connection.websocket.send_json({
-                'delivery_id':delivery.id,
-                'event_id':event.id,
-                'type':event.event_type,
-                'payload':event.payload,
-            })
-            async with SessionLocal() as s:
-                await s.execute(update(Delivery).where(
-                    Delivery.id==delivery.id,Delivery.status=='pending'
-                ).values(
-                    status='delivered',
-                    attempts=Delivery.attempts+1,
-                    delivered_at=datetime.utcnow(),
-                    last_error=None,
-                ))
-                await s.commit()
-        except Exception as exc:
-            await manager.disconnect(delivery.project_id,delivery.client_id)
-            async with SessionLocal() as s:
-                await s.execute(update(Delivery).where(Delivery.id==delivery.id).values(
-                    attempts=Delivery.attempts+1,last_error=str(exc)
-                ))
-                await s.commit()
-
-async def process(mid,fields):
-    event=json.loads(fields['event'])
-    eid=event['id']
     async with SessionLocal() as s:
-        record=await s.get(Event,eid)
+        record = await s.get(Event, eid)
         if not record:
             await ack_and_cleanup(mid)
             return
-        if record.status=='dead_letter':
+        if record.status == 'dead_letter':
+            await ack_and_cleanup(mid)
+            return
+        delivery = await _ensure_delivery(s, eid, event['project_id'])
+        if delivery.status == 'acked':
+            await s.execute(update(Event).where(Event.id == eid).values(
+                status='delivered',
+                delivered_at=delivery.acked_at or datetime.utcnow(),
+                attempts=max(record.attempts, 1),
+            ))
+            await s.commit()
             await ack_and_cleanup(mid)
             return
 
-    try:
-        await materialize_deliveries(event)
-        async with SessionLocal() as s:
-            await s.execute(update(Event).where(Event.id==eid).values(
-                status='processed',attempts=Event.attempts+1,last_error=None
-            ))
-            await s.commit()
-        await ack_and_cleanup(mid)
-    except Exception as exc:
-        async with SessionLocal() as s:
-            record=await s.get(Event,eid)
-            attempt=(record.attempts if record else 0)+1
-            if attempt >= settings.MAX_RETRIES:
-                await s.execute(update(Event).where(Event.id==eid).values(
-                    status='dead_letter',attempts=attempt,last_error=str(exc),
-                    dead_lettered_at=datetime.utcnow()
-                ))
-                await s.commit()
-                await enqueue_dlq(event,str(exc))
-                await ack_and_cleanup(mid)
-            else:
-                await s.execute(update(Event).where(Event.id==eid).values(
-                    status='retrying',attempts=attempt,last_error=str(exc),
-                    next_attempt_at=datetime.fromtimestamp(time.time()+min(
-                        settings.RETRY_MAX_SECONDS,
-                        settings.RETRY_BASE_SECONDS*(2**(attempt-1))
-                    ))
-                ))
-                await s.commit()
-                await schedule_retry(event,time.time()+min(
-                    settings.RETRY_MAX_SECONDS,
-                    settings.RETRY_BASE_SECONDS*(2**(attempt-1))
-                ))
-                await ack_and_cleanup(mid)
+    delivered_clients = await manager.broadcast(
+        event['project_id'],
+        {
+            'event_id': eid,
+            'type': event['type'],
+            'payload': event['payload'],
+            'status': 'processed',
+            'attempt': event.get('attempt', 1),
+        },
+    )
+    if delivered_clients == 0:
+        raise NoSubscribers(f'no active subscribers for project {event["project_id"]}')
+
+    async with SessionLocal() as s:
+        delivery = await _ensure_delivery(s, eid, event['project_id'])
+        delivery.status = 'sent'
+        delivery.attempts += 1
+        delivery.last_sent_at = datetime.utcnow()
+        await s.execute(update(Event).where(Event.id == eid).values(
+            status='processed',
+            attempts=max((await s.get(Event, eid)).attempts, event.get('attempt', 1)),
+            last_error=None,
+            next_attempt_at=None,
+        ))
+        await s.commit()
+
+    await ack_and_cleanup(mid)
 
 async def process_entries(entries):
-    for mid,fields in entries:
+    for mid, fields in entries:
         try:
-            await process(mid,fields)
+            await process(mid, fields)
+        except NoSubscribers as exc:
+            print(f'hamylion delivery pending: {exc}')
         except Exception as exc:
             print(f'hamylion worker error: {exc}')
 
 async def main():
     await ensure_group()
-    last_publish=0.0
+    last_publish = 0.0
     while True:
         try:
-            now=time.time()
-            if now-last_publish>=2:
+            now = time.time()
+            if now - last_publish >= 2:
                 await publish_unpublished()
                 await drain_due_retries()
-                await deliver_pending()
-                last_publish=now
+                last_publish = now
 
-            claimed=await reclaim_idle()
-            if claimed and len(claimed)==2:
+            claimed = await reclaim_idle()
+            if claimed and len(claimed) == 2:
                 await process_entries(claimed[1])
 
-            messages=await client.xreadgroup(
-                GROUP,settings.WORKER_NAME,{STREAM:'>'},count=20,block=5000
+            messages = await client.xreadgroup(
+                GROUP,
+                settings.WORKER_NAME,
+                {STREAM: '>'},
+                count=20,
+                block=5000,
             )
-            for _,entries in messages:
+            for _, entries in messages:
                 await process_entries(entries)
         except Exception as exc:
             print(f'hamylion worker loop error: {exc}')
             await asyncio.sleep(2)
 
-if __name__=='__main__':
+if __name__ == '__main__':
     asyncio.run(main())
