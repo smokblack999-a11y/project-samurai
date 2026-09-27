@@ -1,8 +1,14 @@
 import os
 
+def required(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f'{name} is required')
+    return value
+
 class Settings:
-    DATABASE_URL=os.getenv('DATABASE_URL','postgresql+asyncpg://hamylion:hamylion@postgres:5432/hamylion')
-    REDIS_URL=os.getenv('REDIS_URL','redis://redis:6379/0')
+    DATABASE_URL=required('DATABASE_URL')
+    REDIS_URL=required('REDIS_URL')
     API_KEY=os.getenv('HAMYLION_API_KEY','')
     GITHUB_WEBHOOK_SECRET=os.getenv('GITHUB_WEBHOOK_SECRET','')
     GITHUB_ALLOWED_REPOSITORIES={x.strip().lower() for x in os.getenv('HAMYLION_GITHUB_ALLOWED_REPOSITORIES','').split(',') if x.strip()}

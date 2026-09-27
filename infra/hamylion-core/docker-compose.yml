@@ -2,11 +2,11 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: hamylion
-      POSTGRES_USER: hamylion
-      POSTGRES_PASSWORD: hamylion
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hamylion -d hamylion"]
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -27,7 +27,7 @@ services:
       dockerfile: backend/Dockerfile
     command: alembic upgrade head
     environment:
-      DATABASE_URL: postgresql+asyncpg://hamylion:hamylion@postgres:5432/hamylion
+      DATABASE_URL: ${HAMYLION_DATABASE_URL:?HAMYLION_DATABASE_URL must be set}
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,9 +39,9 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports: ['8000:8000']
     environment:
-      DATABASE_URL: postgresql+asyncpg://hamylion:hamylion@postgres:5432/hamylion
-      REDIS_URL: redis://redis:6379/0
-      HAMYLION_API_KEY: ${HAMYLION_API_KEY:-hm_dev_change_me}
+      DATABASE_URL: ${HAMYLION_DATABASE_URL:?HAMYLION_DATABASE_URL must be set}
+      REDIS_URL: ${HAMYLION_REDIS_URL:?HAMYLION_REDIS_URL must be set}
+      HAMYLION_API_KEY: ${HAMYLION_API_KEY:?HAMYLION_API_KEY must be set}
       GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
       HAMYLION_GITHUB_ALLOWED_REPOSITORIES: ${HAMYLION_GITHUB_ALLOWED_REPOSITORIES:-}
       HAMYLION_WEBHOOK_MAX_BODY_BYTES: ${HAMYLION_WEBHOOK_MAX_BODY_BYTES:-2097152}
@@ -63,9 +63,8 @@ services:
       dockerfile: backend/Dockerfile
     command: python worker.py
     environment:
-      DATABASE_URL: postgresql+asyncpg://hamylion:hamylion@postgres:5432/hamylion
-      REDIS_URL: redis://redis:6379/0
-      HAMYLION_API_KEY: ${HAMYLION_API_KEY:-hm_dev_change_me}
+      DATABASE_URL: ${HAMYLION_DATABASE_URL:?HAMYLION_DATABASE_URL must be set}
+      REDIS_URL: ${HAMYLION_REDIS_URL:?HAMYLION_REDIS_URL must be set}
       MAX_RETRIES: ${MAX_RETRIES:-5}
       RETRY_BASE_SECONDS: ${RETRY_BASE_SECONDS:-2}
       RETRY_MAX_SECONDS: ${RETRY_MAX_SECONDS:-300}
