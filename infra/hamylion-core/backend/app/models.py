@@ -8,7 +8,6 @@ class Base(DeclarativeBase): pass
 class Event(Base):
     __tablename__='events'
     __table_args__=(UniqueConstraint('project_id','idempotency_key',name='uq_event_idempotency'),)
-
     id:Mapped[str]=mapped_column(String(64),primary_key=True)
     project_id:Mapped[str]=mapped_column(String(128),index=True)
     event_type:Mapped[str]=mapped_column(String(128),index=True)
@@ -27,7 +26,6 @@ class Event(Base):
 class ApiKey(Base):
     __tablename__='api_keys'
     __table_args__=(UniqueConstraint('key_hash',name='uq_api_key_hash'),)
-
     id:Mapped[str]=mapped_column(String(64),primary_key=True)
     project_id:Mapped[str]=mapped_column(String(128),index=True)
     name:Mapped[str]=mapped_column(String(128))
@@ -37,15 +35,23 @@ class ApiKey(Base):
     expires_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     last_used_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
 
+class WebSocketClient(Base):
+    __tablename__='websocket_clients'
+    id:Mapped[str]=mapped_column(String(128),primary_key=True)
+    project_id:Mapped[str]=mapped_column(String(128),index=True)
+    active:Mapped[bool]=mapped_column(Boolean,default=True,index=True)
+    last_seen_at:Mapped[datetime]=mapped_column(DateTime)
+    created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+
 class EventDelivery(Base):
     __tablename__='event_deliveries'
-    __table_args__=(UniqueConstraint('event_id','project_id',name='uq_event_delivery_target'),)
-
+    __table_args__=(UniqueConstraint('event_id','client_id',name='uq_event_client_delivery'),)
     id:Mapped[str]=mapped_column(String(64),primary_key=True)
     event_id:Mapped[str]=mapped_column(ForeignKey('events.id',ondelete='CASCADE'),index=True)
     project_id:Mapped[str]=mapped_column(String(128),index=True)
-    status:Mapped[str]=mapped_column(String(16),default='pending',index=True)
+    client_id:Mapped[str]=mapped_column(ForeignKey('websocket_clients.id',ondelete='CASCADE'),index=True)
+    status:Mapped[str]=mapped_column(String(32),default='pending',index=True)
     attempts:Mapped[int]=mapped_column(Integer,default=0)
-    last_sent_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
-    acked_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
+    last_error:Mapped[str|None]=mapped_column(Text,nullable=True)
+    delivered_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
