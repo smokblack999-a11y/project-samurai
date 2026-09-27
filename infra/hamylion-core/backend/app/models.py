@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String,Text,DateTime,Integer,UniqueConstraint,Boolean
+from sqlalchemy import String,Text,DateTime,Integer,UniqueConstraint,Boolean,ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column
 
@@ -36,3 +36,16 @@ class ApiKey(Base):
     created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
     expires_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     last_used_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
+
+class EventDelivery(Base):
+    __tablename__='event_deliveries'
+    __table_args__=(UniqueConstraint('event_id','project_id',name='uq_event_delivery_target'),)
+
+    id:Mapped[str]=mapped_column(String(64),primary_key=True)
+    event_id:Mapped[str]=mapped_column(ForeignKey('events.id',ondelete='CASCADE'),index=True)
+    project_id:Mapped[str]=mapped_column(String(128),index=True)
+    status:Mapped[str]=mapped_column(String(16),default='pending',index=True)
+    attempts:Mapped[int]=mapped_column(Integer,default=0)
+    last_sent_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
+    acked_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
+    created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
