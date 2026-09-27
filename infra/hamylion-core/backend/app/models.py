@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String,Text,DateTime,Integer,UniqueConstraint,Boolean
+from sqlalchemy import String,Text,DateTime,Integer,UniqueConstraint,Boolean,ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column
 
@@ -37,24 +37,15 @@ class ApiKey(Base):
     expires_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     last_used_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
 
-
-class WebSocketClient(Base):
-    __tablename__='websocket_clients'
-    id:Mapped[str]=mapped_column(String(128),primary_key=True)
-    project_id:Mapped[str]=mapped_column(String(128),index=True)
-    active:Mapped[bool]=mapped_column(Boolean,default=True,index=True)
-    last_seen_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
-    created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
-
-class Delivery(Base):
+class EventDelivery(Base):
     __tablename__='event_deliveries'
-    __table_args__=(UniqueConstraint('event_id','client_id',name='uq_event_client_delivery'),)
+    __table_args__=(UniqueConstraint('event_id','project_id',name='uq_event_delivery_target'),)
+
     id:Mapped[str]=mapped_column(String(64),primary_key=True)
-    event_id:Mapped[str]=mapped_column(String(64),ForeignKey('events.id',ondelete='CASCADE'),index=True)
+    event_id:Mapped[str]=mapped_column(ForeignKey('events.id',ondelete='CASCADE'),index=True)
     project_id:Mapped[str]=mapped_column(String(128),index=True)
-    client_id:Mapped[str]=mapped_column(String(128),ForeignKey('websocket_clients.id',ondelete='CASCADE'),index=True)
-    status:Mapped[str]=mapped_column(String(32),default='pending',index=True)
+    status:Mapped[str]=mapped_column(String(16),default='pending',index=True)
     attempts:Mapped[int]=mapped_column(Integer,default=0)
-    last_error:Mapped[str|None]=mapped_column(Text,nullable=True)
-    delivered_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
+    last_sent_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
+    acked_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
