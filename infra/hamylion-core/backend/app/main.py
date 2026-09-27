@@ -14,7 +14,7 @@ from .auth import validate_api_key
 from .codeberg import parse_codeberg_rss
 from .config import settings
 from .db import SessionLocal, engine
-from .models import Event, WebSocketClient
+from .models import Event, EventDelivery
 from .queue import enqueue
 from .reliability import verify_signature
 from .schemas import EventRequest, EventResponse
@@ -22,19 +22,15 @@ from .websocket import manager
 
 MIGRATION_HEAD = '0003_event_deliveries'
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
 
-
-app = FastAPI(title='HAMYLION Core', version='3.1.0', lifespan=lifespan)
-
+app = FastAPI(title='HAMYLION Core', version='3.2.0', lifespan=lifespan)
 
 @app.get('/health')
 async def health():
-    return {'status': 'ok', 'service': 'hamylion-core', 'version': '3.1.0'}
-
+    return {'status': 'ok', 'service': 'hamylion-core', 'version': '3.2.0'}
 
 @app.get('/ready')
 async def ready():
@@ -47,8 +43,7 @@ async def ready():
             return JSONResponse(status_code=503, content={'ready': False, 'migration': current, 'required_migration': MIGRATION_HEAD})
         return {'ready': True, 'migration': current, 'required_migration': MIGRATION_HEAD}
     except Exception:
-        return {'ready': False, 'migration': None, 'required_migration': MIGRATION_HEAD}
-
+        return JSONResponse(status_code=503, content={'ready': False, 'migration': None, 'required_migration': MIGRATION_HEAD})
 
 @app.post('/v1/events', response_model=EventResponse)
 async def create_event(req: EventRequest, project_id: str = Depends(validate_api_key)):
@@ -88,7 +83,6 @@ async def create_event(req: EventRequest, project_id: str = Depends(validate_api
         pass
 
     return EventResponse(event_id=eid, status='queued')
-
 
 @app.post('/v1/github/webhook')
 async def github_webhook(
@@ -154,7 +148,6 @@ async def github_webhook(
 
     return {'event_id': eid, 'status': 'queued', 'delivery_id': x_github_delivery}
 
-
 @app.post('/v1/codeberg/rss')
 async def codeberg_rss(request: Request, project_id: str = Depends(validate_api_key)):
     body = await request.body()
@@ -215,7 +208,6 @@ async def codeberg_rss(request: Request, project_id: str = Depends(validate_api_
 
     return {'accepted': len(accepted), 'events': accepted}
 
-
 @app.post('/v1/events/{event_id}/replay')
 async def replay_event(event_id: str, project_id: str = Depends(validate_api_key)):
     async with SessionLocal() as s:
@@ -237,6 +229,30 @@ async def replay_event(event_id: str, project_id: str = Depends(validate_api_key
         await s.commit()
     return {'event_id': event_id, 'status': 'queued', 'replayed': True}
 
+@app.post('/v1/events/{event_id}/ack')
+async def ack_event(event_id: str, project_id: str = Depends(validate_api_key)):
+    async with SessionLocal() as s:
+        event = (await s.execute(select(Event).where(
+            Event.id == event_id, Event.project_id == project_id
+        ))).scalar_one_or_none()
+        if not event:
+            return {'error': 'not_found'}
+        delivery = (await s.execute(select(EventDelivery).where(
+            EventDelivery.event_id == event_id,
+            EventDelivery.project_id == project_id,
+        ))).scalar_one_or_none()
+        if not delivery:
+            return {'error': 'delivery_not_found'}
+        now = datetime.utcnow()
+        delivery.status = 'acked'
+        delivery.acked_at = now
+        await s.execute(update(Event).where(Event.id == event_id).values(
+            status='delivered',
+            delivered_at=now,
+            last_error=None,
+        ))
+        await s.commit()
+    return {'event_id': event_id, 'status': 'delivered', 'acked_at': now}
 
 @app.get('/v1/events/{event_id}')
 async def get_event(event_id: str, project_id: str = Depends(validate_api_key)):
@@ -260,7 +276,6 @@ async def get_event(event_id: str, project_id: str = Depends(validate_api_key)):
         'dead_lettered_at': e.dead_lettered_at,
     }
 
-
 @app.websocket('/v1/ws')
 async def ws(websocket: WebSocket, project_id: str, x_api_key: str | None = Header(default=None)):
     authenticated_project = await validate_api_key(x_api_key)
@@ -270,6 +285,13 @@ async def ws(websocket: WebSocket, project_id: str, x_api_key: str | None = Head
     await manager.connect(project_id, websocket)
     try:
         while True:
-            await websocket.receive_text()
+            raw = await websocket.receive_text()
+            try:
+                message = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if message.get('type') != 'ack' or not message.get('event_id'):
+                continue
+            await ack_event(str(message['event_id']), project_id)
     except WebSocketDisconnect:
         await manager.disconnect(project_id, websocket)
