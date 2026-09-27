@@ -1,3 +1,4 @@
+import hashlib
 import xml.etree.ElementTree as ET
 import json
 import uuid
@@ -14,7 +15,7 @@ from .auth import validate_api_key
 from .codeberg import parse_codeberg_rss
 from .config import settings
 from .db import SessionLocal, engine
-from .models import Event, EventDelivery
+from .models import Event, EventDelivery, WebSocketClient
 from .queue import enqueue
 from .reliability import verify_signature
 from .schemas import EventRequest, EventResponse
@@ -282,21 +283,33 @@ async def ws(websocket: WebSocket, project_id: str, x_api_key: str | None = Head
     if project_id != authenticated_project:
         await websocket.close(code=1008)
         return
-    await manager.connect(project_id, websocket)
+
+    client_id = 'ws_' + hashlib.sha256((x_api_key or '').encode('utf-8')).hexdigest()[:48]
+    now = datetime.utcnow()
+    async with SessionLocal() as s:
+        client = await s.get(WebSocketClient, client_id)
+        if client:
+            client.project_id = project_id
+            client.active = True
+            client.last_seen_at = now
+        else:
+            s.add(WebSocketClient(
+                id=client_id, project_id=project_id, active=True,
+                last_seen_at=now, created_at=now
+            ))
+        await s.commit()
+
+    await manager.connect(project_id, client_id, websocket)
     try:
         async with SessionLocal() as s:
             pending = (await s.execute(
-                select(Event, EventDelivery)
-                .join(EventDelivery, EventDelivery.event_id == Event.id)
-                .where(
-                    and_(
-                        Event.project_id == project_id,
-                        EventDelivery.project_id == project_id,
-                        EventDelivery.status != 'acked',
-                    )
-                )
-                .order_by(Event.created_at)
-                .limit(100)
+                select(Event, EventDelivery).join(
+                    EventDelivery, EventDelivery.event_id == Event.id
+                ).where(
+                    Event.project_id == project_id,
+                    EventDelivery.client_id == client_id,
+                    EventDelivery.status == 'pending',
+                ).order_by(Event.created_at).limit(100)
             )).all()
             for event, delivery in pending:
                 await websocket.send_json({
@@ -309,17 +322,26 @@ async def ws(websocket: WebSocket, project_id: str, x_api_key: str | None = Head
                 })
                 delivery.status = 'sent'
                 delivery.attempts += 1
-                delivery.last_sent_at = datetime.utcnow()
+                delivery.delivered_at = datetime.utcnow()
+            client = await s.get(WebSocketClient, client_id)
+            if client:
+                client.active = True
+                client.last_seen_at = datetime.utcnow()
             await s.commit()
 
         while True:
-            raw = await websocket.receive_text()
-            try:
-                message = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            if message.get('type') != 'ack' or not message.get('event_id'):
-                continue
-            await ack_event(str(message['event_id']), project_id)
+            await websocket.receive_text()
+            async with SessionLocal() as s:
+                client = await s.get(WebSocketClient, client_id)
+                if client:
+                    client.last_seen_at = datetime.utcnow()
+                    client.active = True
+                    await s.commit()
     except WebSocketDisconnect:
-        await manager.disconnect(project_id, websocket)
+        await manager.disconnect(project_id, client_id)
+        async with SessionLocal() as s:
+            client = await s.get(WebSocketClient, client_id)
+            if client:
+                client.active = False
+                client.last_seen_at = datetime.utcnow()
+                await s.commit()
