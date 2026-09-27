@@ -1,13 +1,9 @@
-from logging.config import fileConfig
 import os
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from app.models import Base
 
 config = context.config
-if config.config_file_name and os.path.exists(config.config_file_name):
-    fileConfig(config.config_file_name)
-
 database_url = os.getenv("DATABASE_URL")
 if not database_url:
     raise RuntimeError("DATABASE_URL is required for migrations")
