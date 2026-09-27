@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config, pool
 from app.models import Base
 
 config = context.config
-if config.config_file_name:
+if config.config_file_name and os.path.exists(config.config_file_name):
     fileConfig(config.config_file_name)
 
 database_url = os.getenv("DATABASE_URL")
