@@ -7,7 +7,7 @@ from datetime import datetime
 from alembic.runtime.migration import MigrationContext
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, update
+from sqlalchemy import and_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from .auth import validate_api_key
@@ -284,6 +284,34 @@ async def ws(websocket: WebSocket, project_id: str, x_api_key: str | None = Head
         return
     await manager.connect(project_id, websocket)
     try:
+        async with SessionLocal() as s:
+            pending = (await s.execute(
+                select(Event, EventDelivery)
+                .join(EventDelivery, EventDelivery.event_id == Event.id)
+                .where(
+                    and_(
+                        Event.project_id == project_id,
+                        EventDelivery.project_id == project_id,
+                        EventDelivery.status != 'acked',
+                    )
+                )
+                .order_by(Event.created_at)
+                .limit(100)
+            )).all()
+            for event, delivery in pending:
+                await websocket.send_json({
+                    'event_id': event.id,
+                    'type': event.event_type,
+                    'payload': event.payload,
+                    'status': 'processed',
+                    'attempt': max(1, event.attempts),
+                    'replay': True,
+                })
+                delivery.status = 'sent'
+                delivery.attempts += 1
+                delivery.last_sent_at = datetime.utcnow()
+            await s.commit()
+
         while True:
             raw = await websocket.receive_text()
             try:
