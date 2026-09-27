@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert
 
 from app.config import settings
 from app.db import SessionLocal
@@ -38,26 +38,20 @@ async def publish_unpublished(limit: int = 50):
         await s.commit()
 
 async def _ensure_delivery_rows(s,event_id,project_id,client_ids):
-    for client_id in client_ids:
-        row=(await s.execute(select(EventDelivery).where(
-            EventDelivery.event_id==event_id, EventDelivery.client_id==client_id
-        ))).scalar_one_or_none()
-        if row:
-            continue
-        s.add(EventDelivery(
-            id='dlv_'+uuid.uuid4().hex,event_id=event_id,project_id=project_id,
-            client_id=client_id,status='pending'
-        ))
-    try:
-        await s.flush()
-    except IntegrityError:
-        await s.rollback()
-        for client_id in client_ids:
-            row=(await s.execute(select(EventDelivery).where(
-                EventDelivery.event_id==event_id, EventDelivery.client_id==client_id
-            ))).scalar_one_or_none()
-            if not row:
-                raise
+    if not client_ids:
+        return
+    rows=[{
+        'id':'dlv_'+uuid.uuid4().hex,
+        'event_id':event_id,
+        'project_id':project_id,
+        'client_id':client_id,
+        'status':'pending',
+        'attempts':0,
+    } for client_id in client_ids]
+    stmt=insert(EventDelivery).values(rows).on_conflict_do_nothing(
+        index_elements=['event_id','client_id']
+    )
+    await s.execute(stmt)
 
 async def process(mid,fields):
     event=json.loads(fields['event'])
