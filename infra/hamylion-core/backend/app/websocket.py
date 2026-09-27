@@ -4,28 +4,33 @@ from fastapi import WebSocket
 
 class ConnectionManager:
     def __init__(self):
-        self.connections=defaultdict(set)
+        self.connections=defaultdict(dict)
         self.lock=asyncio.Lock()
 
-    async def connect(self,p,w):
+    async def connect(self,p,client_id,w):
         await w.accept()
         async with self.lock:
-            self.connections[p].add(w)
+            self.connections[p][client_id]=w
 
-    async def disconnect(self,p,w):
+    async def disconnect(self,p,client_id):
         async with self.lock:
-            self.connections[p].discard(w)
+            self.connections[p].pop(client_id,None)
+
+    async def clients(self,p):
+        async with self.lock:
+            return list(self.connections.get(p,{}).items())
 
     async def broadcast(self,p,event):
-        async with self.lock:
-            clients=list(self.connections.get(p,set()))
-        delivered=0
-        for w in clients:
+        recipients=await self.clients(p)
+        delivered=[]
+        failed=[]
+        for client_id,w in recipients:
             try:
                 await w.send_json(event)
-                delivered += 1
+                delivered.append(client_id)
             except Exception:
-                await self.disconnect(p,w)
-        return delivered
+                failed.append(client_id)
+                await self.disconnect(p,client_id)
+        return delivered, failed
 
 manager=ConnectionManager()
