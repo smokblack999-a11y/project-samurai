@@ -230,31 +230,6 @@ async def replay_event(event_id: str, project_id: str = Depends(validate_api_key
         await s.commit()
     return {'event_id': event_id, 'status': 'queued', 'replayed': True}
 
-@app.post('/v1/events/{event_id}/ack')
-async def ack_event(event_id: str, project_id: str = Depends(validate_api_key)):
-    async with SessionLocal() as s:
-        event = (await s.execute(select(Event).where(
-            Event.id == event_id, Event.project_id == project_id
-        ))).scalar_one_or_none()
-        if not event:
-            return {'error': 'not_found'}
-        delivery = (await s.execute(select(EventDelivery).where(
-            EventDelivery.event_id == event_id,
-            EventDelivery.project_id == project_id,
-        ))).scalar_one_or_none()
-        if not delivery:
-            return {'error': 'delivery_not_found'}
-        now = datetime.utcnow()
-        delivery.status = 'acked'
-        delivery.acked_at = now
-        await s.execute(update(Event).where(Event.id == event_id).values(
-            status='delivered',
-            delivered_at=now,
-            last_error=None,
-        ))
-        await s.commit()
-    return {'event_id': event_id, 'status': 'delivered', 'acked_at': now}
-
 @app.get('/v1/events/{event_id}')
 async def get_event(event_id: str, project_id: str = Depends(validate_api_key)):
     async with SessionLocal() as s:
