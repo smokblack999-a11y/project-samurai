@@ -1,0 +1,18 @@
+{
+  "engine": "SamuraiSSX.w9ProMaX",
+  "schema_version": "1.0",
+  "modules": [
+    {"id":"screen_vision","enabled":true,"requires_consent":"media_projection"},
+    {"id":"ui_analyzer","enabled":true},
+    {"id":"user_intent","enabled":true},
+    {"id":"device_optimizer","enabled":true},
+    {"id":"security_guardian","enabled":true},
+    {"id":"macro_executor","enabled":true,"requires_consent":"explicit_action"},
+    {"id":"audio_perception","enabled":false,"requires_consent":"microphone"},
+    {"id":"network_awareness","enabled":true},
+    {"id":"cloud_sync","enabled":true},
+    {"id":"self_improvement","enabled":true,"mode":"bounded"},
+    {"id":"visual_persona","enabled":true},
+    {"id":"private_core","enabled":true}
+  ]
+}
