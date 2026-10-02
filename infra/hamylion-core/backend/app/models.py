@@ -19,3 +19,4 @@ class Event(Base):
     created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
     delivered_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     last_delivered_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
+    delivery_started_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True,index=True)
