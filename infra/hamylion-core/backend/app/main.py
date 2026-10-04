@@ -1,10 +1,10 @@
-import uuid
+import uuid,hashlib
 from datetime import datetime
 from fastapi import FastAPI,Depends,WebSocket,WebSocketDisconnect,HTTPException
 from sqlalchemy import select,update
 from sqlalchemy.exc import IntegrityError
 from .db import SessionLocal,engine
-from .models import Base,Event
+from .models import Base,Event,Project,ApiKey
 from .schemas import EventRequest,EventResponse
 from .auth import validate_api_key
 from .queue import enqueue
@@ -52,6 +52,23 @@ async def ack_event(event_id:str,project_id:str=Depends(validate_api_key)):
         async with SessionLocal() as s: e=await s.get(Event,event_id)
         if not e or e.project_id!=project_id: raise HTTPException(404,'not_found')
     return {'event_id':event_id,'status':'delivered'}
+
+
+@app.get('/v1/dlq')
+async def list_dlq(project_id:str=Depends(validate_api_key)):
+    async with SessionLocal() as s:
+        rows=(await s.execute(select(Event).where(Event.project_id==project_id,Event.status=='dead_letter').order_by(Event.created_at.desc()).limit(100))).scalars().all()
+    return {'events':[{'event_id':e.id,'type':e.event_type,'attempts':e.attempts,'last_error':e.last_error,'created_at':e.created_at} for e in rows]}
+
+@app.post('/v1/dlq/{event_id}/replay')
+async def replay_dlq(event_id:str,project_id:str=Depends(validate_api_key)):
+    async with SessionLocal() as s:
+        e=(await s.execute(select(Event).where(Event.id==event_id,Event.project_id==project_id,Event.status=='dead_letter'))).scalar_one_or_none()
+        if not e: raise HTTPException(404,'not_found')
+        e.status='queued'; e.last_error=None
+        await s.commit()
+    await enqueue({'id':e.id,'project_id':e.project_id,'type':e.event_type,'payload':e.payload,'replay':True})
+    return {'event_id':e.id,'status':'requeued'}
 
 @app.post('/v1/events/{event_id}/replay')
 async def replay_event(event_id:str,project_id:str=Depends(validate_api_key)):
