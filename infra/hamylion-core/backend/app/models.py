@@ -5,6 +5,19 @@ from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column
 
 class Base(DeclarativeBase): pass
 
+class Project(Base):
+    __tablename__='projects'
+    id:Mapped[str]=mapped_column(String(128),primary_key=True)
+    name:Mapped[str]=mapped_column(String(255))
+
+class ApiKey(Base):
+    __tablename__='api_keys'
+    id:Mapped[str]=mapped_column(String(64),primary_key=True)
+    project_id:Mapped[str]=mapped_column(String(128),index=True)
+    key_hash:Mapped[str]=mapped_column(String(128),unique=True,index=True)
+    active:Mapped[bool]=mapped_column(default=True,index=True)
+    created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
+
 class Event(Base):
     __tablename__='events'
     __table_args__=(UniqueConstraint('project_id','idempotency_key',name='uq_event_idempotency'),)
