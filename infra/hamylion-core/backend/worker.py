@@ -1,9 +1,9 @@
-import asyncio,json
+import asyncio,json,random
 from datetime import datetime,timedelta
 from sqlalchemy import select,update
 from app.db import SessionLocal
 from app.models import Event
-from app.queue import client,STREAM,GROUP,ensure_group,reclaim_idle
+from app.queue import client,STREAM,GROUP,ensure_group,reclaim_idle,enqueue
 from app.config import settings
 from app.websocket import manager
 
@@ -51,7 +51,15 @@ async def main():
                     except Exception as exc:
                         event=json.loads(fields['event'])
                         async with SessionLocal() as s:
-                            await s.execute(update(Event).where(Event.id==event['id']).values(status='retrying',last_error=str(exc)))
+                            e=await s.get(Event,event['id'])
+                            if e:
+                                if e.attempts>=settings.MAX_RETRIES:
+                                    e.status='dead_letter'; e.last_error=str(exc)
+                                else:
+                                    delay=min(settings.RETRY_MAX_SECONDS,settings.RETRY_BASE_SECONDS*(2**max(e.attempts-1,0)))
+                                    delay*=random.uniform(0.8,1.2)
+                                    e.status='retrying'; e.last_error=str(exc)
+                                    await enqueue({'id':e.id,'project_id':e.project_id,'type':e.event_type,'payload':e.payload,'retry_delay':delay})
                             await s.commit()
         except Exception:
             await asyncio.sleep(2)
