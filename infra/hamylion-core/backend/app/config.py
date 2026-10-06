@@ -5,4 +5,6 @@ class Settings:
     API_KEY=os.getenv('HAMYLION_API_KEY','')
     MAX_RETRIES=int(os.getenv('MAX_RETRIES','5'))
     RETRY_BASE_SECONDS=float(os.getenv('RETRY_BASE_SECONDS','1'))
+    DELIVERY_TIMEOUT_SECONDS=int(os.getenv('DELIVERY_TIMEOUT_SECONDS','30'))
+    RETRY_MAX_SECONDS=float(os.getenv('RETRY_MAX_SECONDS','60'))
 settings=Settings()
