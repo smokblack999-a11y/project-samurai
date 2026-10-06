@@ -4,3 +4,7 @@ sqlalchemy
 asyncpg
 redis
 pydantic
+alembic
+pytest
+pytest-asyncio
+httpx
