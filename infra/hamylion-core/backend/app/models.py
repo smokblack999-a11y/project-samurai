@@ -33,3 +33,4 @@ class Event(Base):
     delivered_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     last_delivered_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     delivery_started_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True,index=True)
+    retry_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True,index=True)
