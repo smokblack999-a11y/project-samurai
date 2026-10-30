@@ -1,16 +1,19 @@
 import uuid
 from datetime import datetime
-from fastapi import FastAPI,Depends,WebSocket,WebSocketDisconnect,HTTPException
+from fastapi import FastAPI,Depends,WebSocket,WebSocketDisconnect,HTTPException,Response
 from sqlalchemy import select,update
 from sqlalchemy.exc import IntegrityError
 from .db import SessionLocal,engine
 from .models import Base,Event,Outbox
 from .schemas import EventRequest,EventResponse
 from .auth import validate_api_key
+from .rate_limit import enforce_project_rate_limit
+from prometheus_client import Counter,generate_latest,CONTENT_TYPE_LATEST
 from .websocket import manager
 from .config import settings
 
 app=FastAPI(title='HAMYLION Core',version='4.1.0')
+HTTP_REQUESTS=Counter('hamylion_http_requests_total','HTTP requests',['method','path','status'])
 
 def event_payload(eid,project_id,event_type,payload,**extra):
     data={'id':eid,'project_id':project_id,'type':event_type,'payload':payload}
@@ -24,6 +27,16 @@ def add_outbox(session,eid,project_id,event_type,payload,**extra):
         payload=event_payload(eid,project_id,event_type,payload,**extra),
     ))
 
+@app.middleware('http')
+async def collect_http_metrics(request,call_next):
+    response=await call_next(request)
+    HTTP_REQUESTS.labels(request.method,request.url.path,str(response.status_code)).inc()
+    return response
+
+@app.get('/metrics')
+async def metrics():
+    return Response(generate_latest(),media_type=CONTENT_TYPE_LATEST)
+
 @app.on_event('startup')
 async def startup():
     # Schema changes are deployed through Alembic, not create_all.
@@ -36,7 +49,7 @@ async def health():
     return {'status':'ok','service':'hamylion-core','version':'4.1.0'}
 
 @app.post('/v1/events',response_model=EventResponse)
-async def create_event(req:EventRequest,project_id:str=Depends(validate_api_key)):
+async def create_event(req:EventRequest,project_id:str=Depends(enforce_project_rate_limit)):
     async with SessionLocal() as s:
         existing=(await s.execute(select(Event).where(Event.project_id==project_id,Event.idempotency_key==req.idempotency_key))).scalar_one_or_none()
         if existing:
