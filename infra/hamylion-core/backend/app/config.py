@@ -9,4 +9,5 @@ class Settings:
     RETRY_MAX_SECONDS=float(os.getenv('RETRY_MAX_SECONDS','60'))
     AUTO_CREATE_SCHEMA=os.getenv('AUTO_CREATE_SCHEMA','false').lower()=='true'
     RATE_LIMIT_PER_MINUTE=int(os.getenv('RATE_LIMIT_PER_MINUTE','600'))
+    WS_TOKEN_SECRET=os.getenv('WS_TOKEN_SECRET','')
 settings=Settings()
