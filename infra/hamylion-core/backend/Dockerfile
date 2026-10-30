@@ -6,3 +6,4 @@ COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini .
 COPY worker.py .
+COPY tests ./tests
