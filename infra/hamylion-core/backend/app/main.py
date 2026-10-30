@@ -30,7 +30,9 @@ def add_outbox(session,eid,project_id,event_type,payload,**extra):
 @app.middleware('http')
 async def collect_http_metrics(request,call_next):
     response=await call_next(request)
-    HTTP_REQUESTS.labels(request.method,request.url.path,str(response.status_code)).inc()
+    route=request.scope.get('route')
+    route_path=getattr(route,'path','unmatched')
+    HTTP_REQUESTS.labels(request.method,route_path,str(response.status_code)).inc()
     return response
 
 @app.get('/metrics')
