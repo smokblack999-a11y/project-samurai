@@ -9,3 +9,4 @@ pytest
 pytest-asyncio
 httpx
 prometheus-client
+psycopg2-binary
