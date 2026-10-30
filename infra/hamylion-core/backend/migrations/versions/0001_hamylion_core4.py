@@ -25,7 +25,7 @@ def upgrade():
         op.create_table('api_keys',
             sa.Column('id',sa.String(64),primary_key=True),
             sa.Column('project_id',sa.String(128),nullable=False),
-            sa.Column('key_hash',sa.String(128),nullable=False,unique=True),
+            sa.Column('key_hash',sa.String(128),nullable=False),
             sa.Column('active',sa.Boolean(),nullable=False,server_default=sa.true()),
             sa.Column('created_at',sa.DateTime(),nullable=False))
     if 'events' not in insp.get_table_names():
@@ -49,7 +49,6 @@ def upgrade():
     for name in ('last_delivered_at','delivery_started_at','retry_at'):
         if name not in columns:
             op.add_column('events',sa.Column(name,sa.DateTime(),nullable=True))
-    _create_index_if_missing('ix_projects_id','projects',['id'])
     _create_index_if_missing('ix_api_keys_project_id','api_keys',['project_id'])
     _create_index_if_missing('ix_api_keys_key_hash','api_keys',['key_hash'],unique=True)
     _create_index_if_missing('ix_api_keys_active','api_keys',['active'])
