@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from .db import SessionLocal,engine
 from .models import Base,Event,Outbox
 from .schemas import EventRequest,EventResponse
-from .auth import validate_api_key
+from .auth import validate_api_key,issue_ws_token,verify_ws_token
 from .rate_limit import enforce_project_rate_limit
 from prometheus_client import Counter,generate_latest,CONTENT_TYPE_LATEST
 from .websocket import manager
@@ -109,9 +109,13 @@ async def replay_event(event_id:str,project_id:str=Depends(validate_api_key)):
         await s.commit()
     return {'event_id':event_id,'status':'requeued'}
 
+@app.post('/v1/ws-token')
+async def create_ws_token(project_id:str=Depends(enforce_project_rate_limit)):
+    return {'token':issue_ws_token(project_id),'expires_in':60}
+
 @app.websocket('/v1/ws')
-async def ws(websocket:WebSocket,project_id:str,api_key:str):
-    if not settings.API_KEY or api_key!=settings.API_KEY:
+async def ws(websocket:WebSocket,project_id:str,token:str):
+    if not verify_ws_token(token,project_id):
         await websocket.close(code=1008); return
     await manager.connect(project_id,websocket)
     try:
