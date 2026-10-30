@@ -34,3 +34,13 @@ class Event(Base):
     last_delivered_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     delivery_started_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True,index=True)
     retry_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True,index=True)
+
+class Outbox(Base):
+    __tablename__='outbox'
+    id:Mapped[str]=mapped_column(String(64),primary_key=True)
+    event_id:Mapped[str]=mapped_column(String(64),index=True)
+    payload:Mapped[dict]=mapped_column(JSONB)
+    created_at:Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow,index=True)
+    published_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True,index=True)
+    attempts:Mapped[int]=mapped_column(Integer,default=0)
+    last_error:Mapped[str|None]=mapped_column(Text,nullable=True)
