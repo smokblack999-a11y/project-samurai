@@ -2,7 +2,7 @@ import asyncio,json,random
 from datetime import datetime,timedelta
 from sqlalchemy import select
 from app.db import SessionLocal
-from app.models import Event
+from app.models import Event,Outbox
 from app.queue import client,STREAM,GROUP,ensure_group,reclaim_idle,enqueue
 from app.config import settings
 from app.websocket import manager
@@ -80,6 +80,25 @@ async def handle_messages(messages):
                 await process(mid,fields)
             except Exception:
                 pass
+
+async def dispatch_outbox(batch_size=100):
+    async with SessionLocal() as s:
+        rows=(await s.execute(
+            select(Outbox)
+            .where(Outbox.published_at.is_(None))
+            .order_by(Outbox.created_at)
+            .limit(batch_size)
+            .with_for_update(skip_locked=True)
+        )).scalars().all()
+        for row in rows:
+            try:
+                await enqueue(row.payload)
+                row.published_at=datetime.utcnow()
+                row.last_error=None
+            except Exception as exc:
+                row.attempts+=1
+                row.last_error=str(exc)[:2000]
+        await s.commit()
 
 async def main():
     await ensure_group()
