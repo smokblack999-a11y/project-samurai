@@ -7,4 +7,5 @@ class Settings:
     RETRY_BASE_SECONDS=float(os.getenv('RETRY_BASE_SECONDS','1'))
     DELIVERY_TIMEOUT_SECONDS=int(os.getenv('DELIVERY_TIMEOUT_SECONDS','30'))
     RETRY_MAX_SECONDS=float(os.getenv('RETRY_MAX_SECONDS','60'))
+    AUTO_CREATE_SCHEMA=os.getenv('AUTO_CREATE_SCHEMA','false').lower()=='true'
 settings=Settings()
