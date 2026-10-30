@@ -8,9 +8,10 @@ async def enforce_project_rate_limit(project_id:str=Depends(validate_api_key)):
     key=f"hamylion:rate:{project_id}"
     async with client.pipeline(transaction=True) as pipe:
         pipe.incr(key)
-        pipe.expire(key,window)
+        pipe.expire(key,window,nx=True)
         result=await pipe.execute()
     count=int(result[0])
     if count>settings.RATE_LIMIT_PER_MINUTE:
-        raise HTTPException(status_code=429,detail="rate_limit_exceeded",headers={"Retry-After":str(window)})
+        ttl=await client.ttl(key)
+        raise HTTPException(status_code=429,detail="rate_limit_exceeded",headers={"Retry-After":str(max(int(ttl),1))})
     return project_id
