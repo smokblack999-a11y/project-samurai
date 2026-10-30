@@ -8,3 +8,4 @@ alembic
 pytest
 pytest-asyncio
 httpx
+prometheus-client
