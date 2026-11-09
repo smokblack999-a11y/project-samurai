@@ -7,3 +7,4 @@ COPY migrations ./migrations
 COPY alembic.ini .
 COPY worker.py .
 COPY tests ./tests
+COPY scripts ./scripts
