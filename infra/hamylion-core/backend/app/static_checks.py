@@ -8,7 +8,7 @@ import re
 RULES = [
     {
         "id": "AEGIS-PY-001",
-        "pattern": re.compile(r"\\beval\\s*\\("),
+        "pattern": re.compile(r"\beval\s*\("),
         "title": "Dynamic code evaluation detected",
         "severity": "high",
         "cwe": "CWE-95",
@@ -17,7 +17,7 @@ RULES = [
     },
     {
         "id": "AEGIS-PY-002",
-        "pattern": re.compile(r"\\bsubprocess\\.(?:run|Popen|call|check_output)\\s*\\(.*\\bshell\\s*=\\s*True"),
+        "pattern": re.compile(r"\bsubprocess\.(?:run|Popen|call|check_output)\s*\(.*\bshell\s*=\s*True"),
         "title": "Subprocess invocation enables shell interpretation",
         "severity": "high",
         "cwe": "CWE-78",
@@ -26,7 +26,7 @@ RULES = [
     },
     {
         "id": "AEGIS-TLS-001",
-        "pattern": re.compile(r"(?i)\\bverify\\s*=\\s*False\\b"),
+        "pattern": re.compile(r"(?i)\bverify\s*=\s*False\b"),
         "title": "TLS certificate verification is disabled",
         "severity": "high",
         "cwe": "CWE-295",
@@ -35,7 +35,7 @@ RULES = [
     },
     {
         "id": "AEGIS-CONFIG-001",
-        "pattern": re.compile(r"(?i)^\\s*DEBUG\\s*=\\s*True\\b"),
+        "pattern": re.compile(r"(?i)^\s*DEBUG\s*=\s*True\b"),
         "title": "Debug mode appears enabled",
         "severity": "medium",
         "cwe": "CWE-489",
@@ -45,7 +45,7 @@ RULES = [
 ]
 
 _SECRET_LITERAL = re.compile(
-    r"""(?i)\\b(?:api[_-]?key|client[_-]?secret|password|passwd|token|secret)\\b\\s*[:=]\\s*['"][^'"]{8,}['"]"""
+    r"""(?i)\b(?:api[_-]?key|client[_-]?secret|password|passwd|token|secret)\b\s*[:=]\s*['"][^'"]{8,}['"]"""
 )
 _PRIVATE_KEY = re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")
 
