@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HAMYLION AEGIS — Pilot Console</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1118;--panel:#121c27;--line:#263747;--text:#e7eef5;--muted:#9eb0c1;--accent:#77d5b0;--red:#ff817c;--amber:#f3c56b}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#193143 0,transparent 35%),var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:34px 20px 64px}.top{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:28px}.brand{font-size:13px;letter-spacing:.18em;color:var(--accent);font-weight:700}.tag{border:1px solid var(--line);padding:6px 10px;border-radius:99px;color:var(--muted);font-size:12px}
+h1{font-size:clamp(28px,5vw,42px);line-height:1.1;margin:10px 0}p{color:var(--muted)}.lead{max-width:760px;margin-bottom:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:rgba(18,28,39,.94);border:1px solid var(--line);border-radius:16px;padding:20px;min-width:0}.card h2{font-size:18px;margin:0 0 14px}
+.field{display:flex;flex-direction:column;gap:6px;margin:12px 0}.field label{font-size:13px;color:#c3d1dd}input,select,textarea{font:inherit;color:var(--text);background:#0b141d;border:1px solid #304354;border-radius:9px;padding:11px;width:100%;outline:none}input:focus,select:focus,textarea:focus{border-color:var(--accent)}textarea{min-height:240px;resize:vertical;font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.checks{display:flex;flex-direction:column;gap:9px;margin:15px 0}.check{display:flex;align-items:flex-start;gap:9px;color:var(--muted);font-size:13px}.check input{width:auto;margin-top:3px}
+button{border:0;border-radius:10px;padding:11px 15px;background:var(--accent);color:#082018;font-weight:750;cursor:pointer}button.secondary{background:#243747;color:var(--text);border:1px solid #395064}button:disabled{opacity:.55;cursor:wait}small{color:var(--muted)}
+.notice{padding:12px 14px;border:1px solid #5b4c2d;background:#2a2418;border-radius:10px;color:#eed39b;font-size:13px;margin:14px 0}
+#result{margin-top:16px;display:none}.status{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.risk{padding:4px 9px;border-radius:99px;border:1px solid var(--line);font-size:12px;text-transform:uppercase}.finding{padding:14px 0;border-top:1px solid var(--line)}.finding h3{margin:0 0 6px;font-size:15px}.meta{font-size:12px;color:var(--muted);margin-bottom:7px}.error{color:var(--red);white-space:pre-wrap}.good{color:var(--accent)}footer{margin-top:24px;border-top:1px solid var(--line);padding-top:14px;color:var(--muted);font-size:12px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}main{padding-top:22px}}
+</style></head>
+<body><main>
+<div class="top"><div class="brand">HAMYLION / AEGIS</div><div class="tag">SUPERVISED DESIGN-PARTNER PILOT</div></div>
+<h1>Evidence-first security triage.</h1>
+<p class="lead">Review a small source-code or configuration excerpt. Static-only mode runs deterministic heuristics inside HAMYLION and does not call an AI provider. AI review sends the redacted artifact to the configured provider only after separate approval.</p>
+<div class="notice">Pilot only. Use synthetic or sanitized material. Do not submit production secrets, customer data, personal data, private keys, or regulated information. This tool is not a full SAST/DAST scanner or a substitute for a security assessment.</div>
+<div class="grid">
+<section class="card"><h2>1. Connection</h2>
+<div class="field"><label for="apiKey">Project API key</label><input id="apiKey" type="password" autocomplete="off" placeholder="hm_live_…"></div>
+<div class="field"><label for="mode">Review mode</label><select id="mode"><option value="static-scan">Static-only (no external AI)</option><option value="analyze">AI + static review (external processing)</option></select></div>
+<div class="field"><label for="artifactType">Artifact type</label><select id="artifactType"><option value="source_code">Source code</option><option value="configuration">Configuration</option><option value="log">Log</option><option value="incident_notes">Incident notes</option></select></div>
+<div class="field"><label for="task">Task</label><select id="task"><option value="code_review">Code review</option><option value="config_review">Configuration review</option><option value="incident_triage">Incident triage</option><option value="threat_model">Threat model</option></select></div>
+<div class="field"><label for="context">Context (optional, max 2,000 chars)</label><input id="context" maxlength="2000" placeholder="Owned test fixture; Python 3.12…"></div>
+<div class="checks"><label class="check"><input id="authorized" type="checkbox"> I am authorized to submit this artifact for analysis.</label><label class="check"><input id="externalApproval" type="checkbox" disabled> I explicitly approve sending the redacted artifact to the configured external AI provider (required only for AI review).</label></div>
+<div class="row"><button id="run">Run review</button><button class="secondary" id="loadSample" type="button">Load synthetic sample</button></div>
+<small id="counter">0 / 20,000 characters</small>
+</section>
+<section class="card"><h2>2. Artifact</h2>
+<div class="field"><label for="artifact">Paste a sanitized code/configuration excerpt</label><textarea id="artifact" maxlength="20000" spellcheck="false" placeholder="Paste only a synthetic or sanitized excerpt here…"></textarea></div>
+<div class="field"><label for="file">Or load a local text file (not uploaded until you press Run)</label><input id="file" type="file" accept=".py,.js,.ts,.json,.yaml,.yml,.toml,.ini,.conf,.txt,.log,.env.example"></div>
+<small>The file is read in your browser; the request is sent only after you click Run review.</small>
+</section></div>
+<section id="result" class="card"><div class="status"><strong id="summary"></strong><span id="risk" class="risk"></span></div><div id="findings"></div><h2>Assumptions and scope</h2><ul id="assumptions"></ul><h2>Recommended tests</h2><ul id="tests"></ul><div id="warnings"></div><div id="error" class="error"></div></section>
+<footer>AEGIS results are advisory. Each finding requires human verification. Static rules are a small heuristic set and can miss issues or produce false positives. AI review does not execute code or scan remote systems. No artifact is stored by this browser UI.</footer>
+</main>
+<script>
+const byId=function(id){return document.getElementById(id);};
+const sample='"""Synthetic sample. All values are fake."""\nimport requests\nAPI_KEY = "not-a-real-api-key-1234567890"\ndef check(url, expression):\n    response = requests.get(url, verify=False)\n    return eval(expression), response.status_code\n';
+const artifact=byId("artifact");
+function updateCount(){byId("counter").textContent=artifact.value.length.toLocaleString()+" / 20,000 characters";}
+artifact.addEventListener("input",updateCount);
+byId("loadSample").addEventListener("click",function(){artifact.value=sample;updateCount();byId("artifactType").value="source_code";byId("task").value="code_review";});
+byId("file").addEventListener("change",async function(e){const f=e.target.files&&e.target.files[0];if(!f)return;if(f.size>20000){byId("error").textContent="File exceeds the 20 KB pilot limit.";return;}artifact.value=await f.text();updateCount();});
+byId("mode").addEventListener("change",function(){const ai=byId("mode").value==="analyze";byId("externalApproval").disabled=!ai;if(!ai)byId("externalApproval").checked=false;});
+function addList(id,items){const ul=byId(id);ul.replaceChildren();(items||[]).forEach(function(x){const li=document.createElement("li");li.textContent=x;ul.append(li);});}
+function render(data){
+ byId("result").style.display="block";byId("error").textContent="";byId("summary").textContent=data.summary||"Review complete";byId("risk").textContent="Risk: "+(data.risk_level||"unknown");byId("findings").replaceChildren();
+ (data.findings||[]).forEach(function(f){const box=document.createElement("div");box.className="finding";const h=document.createElement("h3");h.textContent=f.title+" — "+f.severity.toUpperCase();box.append(h);const m=document.createElement("div");m.className="meta";m.textContent=(f.source||"")+" · "+(f.rule_id||"")+" · confidence: "+(f.confidence||"");box.append(m);[["Evidence",f.evidence],["Impact",f.impact],["Remediation",f.remediation],["CWE",f.cwe]].forEach(function(pair){const p=document.createElement("p");p.textContent=pair[0]+": "+(pair[1]||"—");box.append(p);});byId("findings").append(box);});
+ addList("assumptions",data.assumptions);addList("tests",data.recommended_tests);byId("warnings").replaceChildren();(data.scope_warnings||[]).forEach(function(w){const p=document.createElement("p");p.textContent="Scope: "+w;byId("warnings").append(p);});
+}
+byId("run").addEventListener("click",async function(){
+ const button=byId("run"),key=byId("apiKey").value.trim(),content=artifact.value,mode=byId("mode").value;
+ byId("result").style.display="block";byId("error").textContent="";byId("findings").replaceChildren();
+ if(!key){byId("error").textContent="Project API key is required.";return;}
+ if(!content.trim()){byId("error").textContent="Paste or load an artifact first.";return;}
+ if(!byId("authorized").checked){byId("error").textContent="Confirm authorization to submit this artifact.";return;}
+ if(mode==="analyze"&&!byId("externalApproval").checked){byId("error").textContent="AI review requires explicit approval for external AI processing.";return;}
+ button.disabled=true;button.textContent="Reviewing…";
+ const body={artifact_type:byId("artifactType").value,task:byId("task").value,context:byId("context").value,content:content,authorized_to_submit:byId("authorized").checked,external_ai_processing_approved:mode==="analyze"&&byId("externalApproval").checked};
+ try{const response=await fetch("/v1/security/"+mode,{method:"POST",headers:{"Content-Type":"application/json","X-API-Key":key},body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw new Error(data.detail||("HTTP "+response.status));render(data);}
+ catch(err){byId("error").textContent="Review failed: "+err.message;}
+ finally{button.disabled=false;button.textContent="Run review";}
+});
+updateCount();
+</script></body></html>
