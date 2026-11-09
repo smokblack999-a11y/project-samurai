@@ -1,0 +1,1 @@
+{"required_metrics":["message_count","buying_precision","buying_recall","f1","false_positive_rate","ai_cost","response_time_baseline","response_time_after"],"minimum_message_count":100,"decision":"do_not_claim_roi_without_customer_data"}

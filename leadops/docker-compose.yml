@@ -1,0 +1,15 @@
+services:
+  leadops:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+      LEADOPS_DB: /data/leadops.db
+      LEADOPS_OUTBOUND_ENABLED: "false"
+    volumes:
+      - leadops_data:/data
+
+volumes:
+  leadops_data:

@@ -1,0 +1,10 @@
+.PHONY: test eval bench
+
+test:
+	pytest -q
+
+eval:
+	python evaluation.py
+
+bench:
+	python benchmark.py

@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  title: Telegram LeadOps AI
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      responses:
+        '200': {description: OK}
+  /api/v1/analyze/message:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: {type: string, minLength: 1, maxLength: 10000}
+      responses:
+        '200':
+          description: Lead decision

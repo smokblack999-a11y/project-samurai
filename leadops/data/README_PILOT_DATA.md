@@ -1,0 +1,1 @@
+Never commit raw Telegram exports. Keep customer data outside Git, run redaction before evaluation, and retain only the minimum fields needed for classification. Use stable synthetic IDs for benchmark rows.
