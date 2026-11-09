@@ -115,6 +115,16 @@ def _cyber_access_program(project_id: str) -> str:
     return program
 
 
+def _assert_selected_program(payload: dict, selected: str) -> None:
+    returned = payload.get("access_programs")
+    actual = returned.get("cyber") if isinstance(returned, dict) else None
+    if selected == "standard":
+        if actual not in (None, "standard"):
+            raise HTTPException(502, "Provider did not honor the standard cybersecurity program")
+    elif actual != selected:
+        raise HTTPException(502, "Provider response did not confirm the requested Daybreak program")
+
+
 def _extract_output_text(payload: dict) -> str:
     chunks = []
     for item in payload.get("output", []):
