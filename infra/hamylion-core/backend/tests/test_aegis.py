@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from pathlib import Path
+
 import pytest
 from fastapi import HTTPException
 
@@ -8,6 +10,7 @@ from app.aegis import (
     AnalysisRequest,
     AnalysisResult,
     Finding,
+    _assert_selected_program,
     _combine_findings,
     _cyber_access_program,
     redact_secrets,
@@ -125,6 +128,23 @@ def test_static_findings_are_merged_and_raise_risk_level():
     assert result.risk_level == "high"
     assert any(item.source == "static_rule" for item in result.findings)
     assert any("heuristic" in item.lower() for item in result.scope_warnings)
+
+def test_synthetic_pilot_fixture_triggers_all_seeded_rules():
+    fixture = Path(__file__).resolve().parents[2] / "examples" / "pilot_sample.py"
+    findings = scan_static(fixture.read_text(encoding="utf-8"), "source_code")
+    rule_ids = {item["rule_id"] for item in findings}
+    assert {"AEGIS-PY-001", "AEGIS-TLS-001", "AEGIS-SECRET-001"}.issubset(rule_ids)
+    assert all("not-a-real-api-key" not in item["evidence"] for item in findings)
+
+def test_standard_program_is_explicitly_verified():
+    _assert_selected_program({"access_programs": {"cyber": "standard"}}, "standard")
+
+
+def test_daybreak_program_requires_confirmation_in_provider_response():
+    with pytest.raises(HTTPException) as exc:
+        _assert_selected_program({"access_programs": {"cyber": "standard"}}, "daybreak_blue")
+    assert exc.value.status_code == 502
+
 
 def test_synthetic_pilot_fixture_triggers_all_seeded_rules():
     fixture = Path(__file__).resolve().parents[2] / "examples" / "pilot_sample.py"
