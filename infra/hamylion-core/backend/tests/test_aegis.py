@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from fastapi import HTTPException
 
@@ -123,3 +125,10 @@ def test_static_findings_are_merged_and_raise_risk_level():
     assert result.risk_level == "high"
     assert any(item.source == "static_rule" for item in result.findings)
     assert any("heuristic" in item.lower() for item in result.scope_warnings)
+
+def test_synthetic_pilot_fixture_triggers_all_seeded_rules():
+    fixture = Path(__file__).resolve().parents[2] / "examples" / "pilot_sample.py"
+    findings = scan_static(fixture.read_text(encoding="utf-8"), "source_code")
+    rule_ids = {item["rule_id"] for item in findings}
+    assert {"AEGIS-PY-001", "AEGIS-TLS-001", "AEGIS-SECRET-001"}.issubset(rule_ids)
+    assert all("not-a-real-api-key" not in item["evidence"] for item in findings)
