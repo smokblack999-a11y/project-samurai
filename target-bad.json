@@ -1,0 +1,11 @@
+{
+  "spec_version": "1.0",
+  "cpu_phys_addr_bits": 48,
+  "iommus": [
+    {"name":"iommu0","enabled":true,"device_id_bits":16,"phys_addr_bits":40,"ats":false,"t2gpa":false,"msi":false,"reset_mode":"On","pmp_enforced":false,"pcie_hierarchies":2}
+  ],
+  "devices": [
+    {"name":"nvme0","dma_capable":true,"iommu":"","device_id":70000,"ats":true,"rciep":true,"trusted":false,"pasid_bits":20,"execute":false,"privilege":"user"}
+  ],
+  "pcie_root_ports": []
+}

@@ -1,0 +1,58 @@
+name: test
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+      - run: go test ./cmd/samurai ./internal/audit ./internal/dts ./internal/regdump
+      - run: go vet ./cmd/samurai ./internal/audit ./internal/dts ./internal/regdump
+      - run: go build ./cmd/samurai
+      - run: go run ./cmd/samurai audit --format json target.json
+      - run: go run ./cmd/samurai audit --format sarif target.json > samurai-clean.sarif
+      - name: Verify DTS evidence extraction
+        shell: bash
+        run: |
+          go run ./cmd/samurai audit-dts --format json fixtures/board.dts > board-evidence.json
+          grep -q '"iommu_count": 1' board-evidence.json
+          grep -q '"dma_devices": 1' board-evidence.json
+      - name: Verify register evidence adapter
+        shell: bash
+        run: |
+          go run ./cmd/samurai audit-regs --format json fixtures/iommu-regs.json > regs-evidence.json
+          grep -q '"phys_addr_bits": 48' regs-evidence.json
+          grep -q '"pasid_supported": true' regs-evidence.json
+      - name: Verify bad register evidence trips the gate
+        shell: bash
+        run: |
+          set +e
+          go run ./cmd/samurai audit-regs --format json --fail-on high fixtures/iommu-regs-bad.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+      - name: Verify failing fixture trips the gate
+        shell: bash
+        run: |
+          set +e
+          go run ./cmd/samurai audit --format json --fail-on high target-bad.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+      - name: Generate SARIF for failing fixture
+        shell: bash
+        run: |
+          set +e
+          go run ./cmd/samurai audit --format sarif target-bad.json > samurai-bad.sarif
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: samurai-sarif-fixtures
+          path: '*.sarif'
