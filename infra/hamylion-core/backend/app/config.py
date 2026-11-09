@@ -17,5 +17,6 @@ class Settings:
     AEGIS_INTERNAL_SECURITY_ONLY=os.getenv('AEGIS_INTERNAL_SECURITY_ONLY','false').lower()=='true'
     AEGIS_INTERNAL_PROJECT_IDS={item.strip() for item in os.getenv('AEGIS_INTERNAL_PROJECT_IDS','').split(',') if item.strip()}
     AEGIS_TIMEOUT_SECONDS=float(os.getenv('AEGIS_TIMEOUT_SECONDS','45'))
+    AEGIS_RATE_LIMIT_PER_MINUTE=int(os.getenv('AEGIS_RATE_LIMIT_PER_MINUTE','10'))
 
 settings=Settings()
