@@ -4,6 +4,10 @@ Reliable event-ingestion foundation plus an optional, evidence-first defensive s
 
 ## AEGIS API
 
+- `GET /pilot` — browser-based pilot console; it keeps the project API key in page memory only.
+- `POST /v1/security/static-scan` — deterministic, static-only triage; no external AI provider is called.
+- `POST /v1/security/analyze` — static heuristics plus optional OpenAI model review; requires external-AI consent.
+
 POST /v1/security/analyze accepts one bounded source-code, configuration, log, or incident-notes artifact. It requires a project-scoped X-API-Key and both attestations: authorized_to_submit=true and external_ai_processing_approved=true.
 
 Response fields include risk_level, findings, severity, confidence, evidence, impact, remediation, CWE, assumptions, recommended_tests, and scope_warnings.
@@ -20,6 +24,8 @@ Example request body:
   "external_ai_processing_approved": true
 }
 ~~~
+
+The static-only route still requires `authorized_to_submit=true` but does not require `external_ai_processing_approved`; AI analysis requires both flags. The two booleans are caller attestations, not a substitute for contractual/privacy approvals.
 
 ## What AEGIS currently does
 
