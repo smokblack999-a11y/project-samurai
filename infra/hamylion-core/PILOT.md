@@ -10,7 +10,7 @@ Evaluate whether AEGIS helps a small software team triage code/configuration ris
 - Up to 3 sanitized source/configuration artifacts per session; each request is limited to 20,000 characters.
 - Review tasks: code review, configuration review, incident triage, or threat modeling.
 - Output: findings with severity, confidence, evidence, impact, remediation, CWE, and safe test suggestions.
-- Static heuristics currently detect eval, subprocess with shell=True, verify=False, DEBUG=True, and likely hard-coded credentials. Other issues depend on model review.
+- Static heuristics currently detect eval, subprocess with shell=True, verify=False, DEBUG=True, and likely hard-coded credentials.
 - Standard OpenAI API model only. Daybreak is disabled for customer pilot traffic in this build.
 
 ## Customer prerequisites
@@ -29,13 +29,15 @@ The API enforces both authorized_to_submit=true and external_ai_processing_appro
 2. Set strong unique values for HAMYLION_API_KEY, WS_TOKEN_SECRET, and POSTGRES_PASSWORD.
 3. Add an OpenAI API key from a project that has access to the selected model. Keep AEGIS_CYBER_PROGRAM=standard.
 4. Start services: docker compose up --build -d.
-5. Check health: curl http://localhost:8000/health.
-6. Run tests: docker compose exec api python -m pytest -q.
-7. Submit the synthetic fixture below before any customer artifact.
+5. Provision a dedicated pilot project/key: docker compose exec api python scripts/provision_project.py --name "Design Partner Pilot". Store the generated key in a secret manager; never send it by email.
+6. Use that generated project key for every pilot request. The global HAMYLION_API_KEY is reserved for legacy/internal compatibility.
+7. Check health: curl http://localhost:8000/health.
+8. Run tests: docker compose exec api python -m pytest -q.
+9. Submit the synthetic fixture before any customer artifact.
 
 ## Synthetic smoke test
 
-Use the intentionally flawed, synthetic file examples/pilot_sample.py. It contains no real credential or customer data. Submit its contents to POST /v1/security/analyze with:
+Use examples/pilot_sample.py. It contains only fake, deliberately risky sample code. Submit its contents to POST /v1/security/analyze with:
 
 - artifact_type=source_code
 - task=code_review
@@ -47,7 +49,7 @@ Expected deterministic signals:
 - verify=False — AEGIS-TLS-001
 - hard-coded dummy API value — AEGIS-SECRET-001
 
-The smoke test passes only when the three deterministic signals appear with redacted evidence. The model may add or omit other findings; manually inspect them.
+The smoke test passes only when these three deterministic signals appear and the dummy secret value never appears in returned evidence. The model may add or omit other findings; manually inspect them.
 
 ## Pilot acceptance criteria
 
@@ -63,16 +65,13 @@ A pilot is accepted only after the customer and HAMYLION reviewer agree that:
 
 Measure response time, cost per request, reviewer agreement, false-positive rate, and time saved. Do not publish delivery or detection-rate claims from a tiny pilot.
 
-## Current technical limits
+## Data handling
 
-- No GitHub/GitLab repository connection or automatic PR comments.
-- No Semgrep/Bandit full SAST engine yet; the built-in rules are a small heuristic set.
-- No DAST, dependency graph scan, malware analysis, or network scanning.
-- No automatic patching or command execution.
-- No live model call has been validated merely by passing unit tests.
-- store=false requests non-persistence of the Responses object; it does not by itself guarantee Zero Data Retention. Confirm the actual API project's retention settings and contractual terms.
-- Static heuristics can produce false positives and miss vulnerabilities.
-- Customer pilot must use standard model access unless a separate, documented product-embedding approval is obtained for any Cyber model/program.
+- Ask the client to provide a synthetic or sanitized fixture first.
+- Never request production secrets, private keys, customer records, or regulated data.
+- Do not accept a full private repository until written approval, data-processing terms, and retention settings have been reviewed.
+- store=false does not guarantee Zero Data Retention; check the actual OpenAI API project settings and applicable contract.
+- Provision a dedicated project key and revoke it at the end of the pilot if the customer does not continue.
 
 ## Pilot closeout
 
