@@ -15,6 +15,7 @@ from app.aegis import (
     _cyber_access_program,
     redact_secrets,
     run_analysis,
+    run_static_analysis,
 )
 from app.static_checks import scan_static
 
@@ -152,3 +153,28 @@ def test_synthetic_pilot_fixture_triggers_all_seeded_rules():
     rule_ids = {item["rule_id"] for item in findings}
     assert {"AEGIS-PY-001", "AEGIS-TLS-001", "AEGIS-SECRET-001"}.issubset(rule_ids)
     assert all("not-a-real-api-key" not in item["evidence"] for item in findings)
+
+def test_static_only_does_not_require_external_ai_consent():
+    request = AnalysisRequest(
+        artifact_type="source_code",
+        task="code_review",
+        content="value = eval(user_input)",
+        authorized_to_submit=True,
+        external_ai_processing_approved=False,
+    )
+    result = run_static_analysis(request)
+    assert any(item.rule_id == "AEGIS-PY-001" for item in result.findings)
+    assert any("does not call an external AI provider" in item for item in result.scope_warnings)
+
+
+def test_static_only_requires_artifact_authorization():
+    request = AnalysisRequest(
+        artifact_type="source_code",
+        task="code_review",
+        content="value = eval(user_input)",
+        authorized_to_submit=False,
+        external_ai_processing_approved=False,
+    )
+    with pytest.raises(HTTPException) as exc:
+        run_static_analysis(request)
+    assert exc.value.status_code == 400
