@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
 from fastapi import FastAPI,Depends,WebSocket,WebSocketDisconnect,HTTPException,Response
+from fastapi.responses import FileResponse
+from pathlib import Path
 from sqlalchemy import select,update
 from sqlalchemy.exc import IntegrityError
 from .db import SessionLocal,engine
@@ -47,6 +49,10 @@ async def startup():
     if settings.AUTO_CREATE_SCHEMA:
         async with engine.begin() as c:
             await c.run_sync(Base.metadata.create_all)
+
+@app.get('/pilot',include_in_schema=False)
+async def pilot_console():
+    return FileResponse(Path(__file__).with_name('pilot.html'),media_type='text/html')
 
 @app.get('/health')
 async def health():
