@@ -73,12 +73,14 @@ def redact_secrets(value: str) -> str:
         value = pattern.sub(replacement, value)
     return value
 
-def _cyber_access_program() -> str:
+def _cyber_access_program(project_id: str) -> str:
     program = settings.AEGIS_CYBER_PROGRAM
     if program not in {"standard", "daybreak_blue", "daybreak_red"}:
         raise HTTPException(503, "AEGIS cyber access program is misconfigured")
-    if program != "standard" and not settings.AEGIS_INTERNAL_SECURITY_ONLY:
-        raise HTTPException(403, "Daybreak is restricted to an approved internal security workspace")
+    if program != "standard":
+        allowed_projects = settings.AEGIS_INTERNAL_PROJECT_IDS
+        if not settings.AEGIS_INTERNAL_SECURITY_ONLY or project_id not in allowed_projects:
+            raise HTTPException(403, "Daybreak is restricted to explicitly allowlisted internal projects")
     allowed_models = {
         "daybreak_blue": {"gpt-6-sol", "gpt-6.1-sol", "gpt-6-astra"},
         "daybreak_red": {"gpt-5.6-cyber", "gpt-6-cyber"},
@@ -104,7 +106,7 @@ def _extract_output_text(payload: dict) -> str:
 async def run_analysis(request: AnalysisRequest, project_id: str) -> AnalysisResult:
     if not settings.OPENAI_API_KEY:
         raise HTTPException(503, "Security analysis provider is not configured")
-    access_program = _cyber_access_program()
+    access_program = _cyber_access_program(project_id)
     user = {
         "artifact_type": request.artifact_type,
         "task": request.task,
