@@ -21,7 +21,7 @@ def test_daybreak_is_blocked_outside_internal_workspace(monkeypatch):
 def test_standard_program_is_default_safe_path(monkeypatch):
     monkeypatch.setattr(aegis.settings, "AEGIS_CYBER_PROGRAM", "standard", raising=False)
     monkeypatch.setattr(aegis.settings, "AEGIS_INTERNAL_SECURITY_ONLY", False, raising=False)
-    assert _cyber_access_program() == "standard"
+    assert _cyber_access_program("project-a") == "standard"
 
 def test_analysis_request_bounds_input():
     with pytest.raises(ValueError):
