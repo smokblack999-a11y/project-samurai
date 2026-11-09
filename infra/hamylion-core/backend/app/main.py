@@ -11,8 +11,10 @@ from .rate_limit import enforce_project_rate_limit
 from prometheus_client import Counter,generate_latest,CONTENT_TYPE_LATEST
 from .websocket import manager
 from .config import settings
+from .aegis import router as aegis_router
 
-app=FastAPI(title='HAMYLION Core',version='4.1.0')
+app=FastAPI(title='HAMYLION Core',version='4.2.0')
+app.include_router(aegis_router)
 HTTP_REQUESTS=Counter('hamylion_http_requests_total','HTTP requests',['method','path','status'])
 
 def event_payload(eid,project_id,event_type,payload,**extra):
@@ -48,7 +50,7 @@ async def startup():
 
 @app.get('/health')
 async def health():
-    return {'status':'ok','service':'hamylion-core','version':'4.1.0'}
+    return {'status':'ok','service':'hamylion-core','version':'4.2.0'}
 
 @app.post('/v1/events',response_model=EventResponse)
 async def create_event(req:EventRequest,project_id:str=Depends(enforce_project_rate_limit)):
