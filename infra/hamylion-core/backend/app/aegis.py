@@ -10,7 +10,8 @@ import httpx
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from .rate_limit import enforce_project_rate_limit
+from .auth import validate_api_key
+from .queue import client as redis_client
 from .config import settings
 
 router = APIRouter(prefix="/v1/security", tags=["security"])
@@ -170,6 +171,22 @@ async def run_analysis(request: AnalysisRequest, project_id: str) -> AnalysisRes
     except (ValueError, TypeError, KeyError):
         raise HTTPException(502, "Security analysis response failed schema validation")
 
+async def enforce_aegis_rate_limit(project_id: str = Depends(validate_api_key)):
+    key = f"hamylion:aegis-rate:{project_id}"
+    try:
+        async with redis_client.pipeline(transaction=True) as pipe:
+            pipe.incr(key)
+            pipe.expire(key, 60, nx=True)
+            result = await pipe.execute()
+        if int(result[0]) > settings.AEGIS_RATE_LIMIT_PER_MINUTE:
+            ttl = await redis_client.ttl(key)
+            raise HTTPException(429, "aegis_rate_limit_exceeded", headers={"Retry-After": str(max(int(ttl), 1))})
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(503, "AEGIS rate limiter is unavailable")
+    return project_id
+
 @router.post("/analyze", response_model=AnalysisResult)
-async def analyze_security_artifact(request: AnalysisRequest, project_id: str = Depends(enforce_project_rate_limit)):
+async def analyze_security_artifact(request: AnalysisRequest, project_id: str = Depends(enforce_aegis_rate_limit)):
     return await run_analysis(request, project_id)
