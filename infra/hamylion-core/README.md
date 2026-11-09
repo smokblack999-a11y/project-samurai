@@ -29,7 +29,7 @@ Example request:
 
 ### Daybreak boundary
 
-AEGIS_CYBER_PROGRAM defaults to standard. Daybreak Blue/Red can only be selected when AEGIS_INTERNAL_SECURITY_ONLY=true is explicitly configured by the operator for an approved internal security workspace. Do not route customer-facing, downstream, or third-party traffic through Daybreak. OpenAI organization approval, project enablement, model approval, and model/program compatibility are still required. This environment flag is an operator attestation, not an access grant.
+AEGIS_CYBER_PROGRAM defaults to standard. Daybreak Blue/Red can only be selected when AEGIS_INTERNAL_SECURITY_ONLY=true is explicitly configured AND the authenticated project ID is listed in AEGIS_INTERNAL_PROJECT_IDS. The allowlist defaults to empty. Do not route customer-facing, downstream, or third-party traffic through Daybreak. OpenAI organization approval, project enablement, model approval, and model/program compatibility are still required. This environment flag is an operator attestation, not an access grant.
 
 The default model is gpt-6-sol; set AEGIS_MODEL to a model actually enabled for the API project. A failed or unauthorized provider request does not silently downgrade to a different model.
 
