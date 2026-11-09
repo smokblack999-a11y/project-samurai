@@ -62,10 +62,10 @@ RESULT_SCHEMA = {
 }
 
 _SECRET_PATTERNS = [
-    (re.compile(r"(?i)(authorization\\s*:\\s*bearer\\s+)[A-Za-z0-9._~+/-]+=*"), r"\\1[REDACTED]"),
-    (re.compile(r"(?i)\\b(api[_-]?key|client[_-]?secret|password|passwd|token|secret)(\\s*[=:]\\s*)['\"]?[^\\s,'\"]+"), r"\\1\\2[REDACTED]"),
-    (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\\s\\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "[REDACTED_PRIVATE_KEY]"),
-    (re.compile(r"\\bAKIA[0-9A-Z]{16}\\b"), "[REDACTED_AWS_KEY]"),
+    (re.compile(r"(?i)(authorization\s*:\s*bearer\s+)[A-Za-z0-9._~+/-]+=*"), r"\1[REDACTED]"),
+    (re.compile(r"(?i)\b(api[_-]?key|client[_-]?secret|password|passwd|token|secret)(\s*[=:]\s*)['\"]?[^\s,'\"]+"), r"\1\2[REDACTED]"),
+    (re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "[REDACTED_PRIVATE_KEY]"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED_AWS_KEY]"),
 ]
 
 def redact_secrets(value: str) -> str:
@@ -99,7 +99,7 @@ def _extract_output_text(payload: dict) -> str:
                 chunks.append(part["text"])
     if not chunks:
         raise HTTPException(502, "The analysis provider returned no structured result")
-    return "\\n".join(chunks)
+    return "\n".join(chunks)
 
 async def run_analysis(request: AnalysisRequest, project_id: str) -> AnalysisResult:
     if not settings.OPENAI_API_KEY:
