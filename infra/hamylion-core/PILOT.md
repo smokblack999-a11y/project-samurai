@@ -35,6 +35,14 @@ The API enforces both authorized_to_submit=true and external_ai_processing_appro
 8. Run tests: docker compose exec api python -m pytest -q.
 9. Submit the synthetic fixture before any customer artifact.
 
+## Browser console
+
+After deployment, open `/pilot` on the same origin as the API. The console keeps the project API key in the current page memory only and does not write it to localStorage. Load the synthetic sample first.
+
+Choose Static-only to call `POST /v1/security/static-scan`. This mode runs the built-in heuristics and does not call an external AI provider; it still requires the caller to attest that they are authorized to submit the artifact.
+
+Choose AI + static review to call `POST /v1/security/analyze`. This additionally requires the explicit external-AI-processing approval checkbox and a configured OpenAI API project/model.
+
 ## Synthetic smoke test
 
 Use examples/pilot_sample.py. It contains only fake, deliberately risky sample code. Submit its contents to POST /v1/security/analyze with:
