@@ -242,6 +242,27 @@ async def run_analysis(request: AnalysisRequest, project_id: str) -> AnalysisRes
         raise HTTPException(502, "Security analysis response failed schema validation")
 
 
+def run_static_analysis(request: AnalysisRequest) -> AnalysisResult:
+    if not request.authorized_to_submit:
+        raise HTTPException(400, "Confirm that you are authorized to submit this artifact")
+    static_items = scan_static(request.content, request.artifact_type)
+    findings = [Finding.model_validate(item) for item in static_items]
+    rank = {"unknown": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+    highest = max((rank[item.severity] for item in findings), default=rank["unknown"])
+    risk = next(name for name, value in rank.items() if value == highest)
+    return AnalysisResult(
+        summary=f"Deterministic static triage completed; {len(findings)} signal(s) found.",
+        risk_level=risk,
+        findings=findings,
+        assumptions=["Only the supplied artifact was inspected; no code was executed."],
+        recommended_tests=["Review each signal manually and verify data flow in an isolated test environment."],
+        scope_warnings=[
+            "Static rules are a small heuristic set, not comprehensive SAST; false positives and missed issues are expected.",
+            "This static-only endpoint does not call an external AI provider."
+        ]
+    )
+
+
 async def enforce_aegis_rate_limit(project_id: str = Depends(validate_api_key)):
     key = f"hamylion:aegis-rate:{project_id}"
     try:
@@ -257,6 +278,14 @@ async def enforce_aegis_rate_limit(project_id: str = Depends(validate_api_key)):
     except Exception:
         raise HTTPException(503, "AEGIS rate limiter is unavailable")
     return project_id
+
+
+@router.post("/static-scan", response_model=AnalysisResult)
+async def static_scan_artifact(
+    request: AnalysisRequest,
+    project_id: str = Depends(enforce_aegis_rate_limit),
+):
+    return run_static_analysis(request)
 
 
 @router.post("/analyze", response_model=AnalysisResult)
