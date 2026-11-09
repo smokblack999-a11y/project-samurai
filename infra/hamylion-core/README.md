@@ -1,48 +1,84 @@
-# HAMYLION Core 4.2 — AEGIS
+# HAMYLION Core 4.3 — AEGIS Pilot
 
 Reliable event-ingestion foundation plus an optional, evidence-first defensive security analysis gateway.
 
-## AEGIS
+## AEGIS API
 
-POST /v1/security/analyze accepts one bounded source-code, configuration, log, or incident-notes artifact. It requires the project's existing X-API-Key and returns schema-validated findings with severity, confidence, evidence, impact, remediation, assumptions, safe regression tests, and scope warnings.
+POST /v1/security/analyze accepts one bounded source-code, configuration, log, or incident-notes artifact. It requires a project-scoped X-API-Key and both attestations: authorized_to_submit=true and external_ai_processing_approved=true.
 
-Example request:
+Response fields include risk_level, findings, severity, confidence, evidence, impact, remediation, CWE, assumptions, recommended_tests, and scope_warnings.
 
-    {
-      "artifact_type": "source_code",
-      "task": "code_review",
-      "context": "Owned repository; review this function only.",
-      "content": "def check_access(user): ..."
-    }
+Example request body:
 
-### AEGIS safety and data handling
+~~~json
+{
+  "artifact_type": "source_code",
+  "task": "code_review",
+  "context": "Review this owned test fixture only.",
+  "content": "def check_access(user): ...",
+  "authorized_to_submit": true,
+  "external_ai_processing_approved": true
+}
+~~~
 
-- No model tools, shell, browser, network scanner, exploit runner, or autonomous remediation are exposed.
-- Artifact and context are treated as untrusted data; embedded instructions are ignored.
-- Common credential patterns and private-key blocks are redacted before provider submission.
-- Raw submitted artifacts and model outputs are not written to the HAMYLION database by AEGIS.
-- Provider request uses store=false and a pseudonymous project-level safety_identifier.
-- Request size is capped at 20,000 characters; context at 2,000 characters; provider timeout is bounded.
-- A separate Redis-backed per-project AEGIS limit defaults to 10 analyses per minute; rate-limit failure blocks the request.
-- Responses must satisfy a strict JSON Schema and are validated again by Pydantic.
-- AI is advisory only. Findings require human verification; no automatic changes or tests are executed.
-- The service fails closed when provider credentials are absent or model access is unavailable.
+## What AEGIS currently does
 
-### Daybreak boundary
+- Calls the OpenAI Responses API with strict Structured Outputs.
+- Runs deterministic heuristic checks alongside the model for eval, subprocess shell=True, verify=False, DEBUG=True, and likely hard-coded credentials.
+- Labels each finding as model_review or static_rule.
+- Redacts common credential patterns and private keys before provider submission. This is heuristic redaction, not complete DLP.
+- Uses store=false and a pseudonymous project-level safety_identifier.
+- Applies a separate Redis-backed project rate limit (default 10 analyses/minute).
+- Does not expose model tools, shell, browser, remote scanning, exploit execution, or automatic remediation.
+- Does not persist submitted artifacts or reports in the HAMYLION database.
+- Requires human verification of all findings.
 
-AEGIS_CYBER_PROGRAM defaults to standard. Daybreak Blue/Red can only be selected when AEGIS_INTERNAL_SECURITY_ONLY=true is explicitly configured AND the authenticated project ID is listed in AEGIS_INTERNAL_PROJECT_IDS. The allowlist defaults to empty. Do not route customer-facing, downstream, or third-party traffic through Daybreak. OpenAI organization approval, project enablement, model approval, and model/program compatibility are still required. This environment flag is an operator attestation, not an access grant.
+Important data note: store=false requests non-persistence of the Responses object. It does not itself guarantee Zero Data Retention or replace a DPA, lawful basis, internal approval, or contractual review. Confirm the OpenAI API project's retention settings before sending proprietary or personal data.
 
-The default model is gpt-6-sol; set AEGIS_MODEL to a model actually enabled for the API project. A failed or unauthorized provider request does not silently downgrade to a different model.
+## Daybreak boundary
 
-## Existing Core
+AEGIS_CYBER_PROGRAM defaults to standard. Daybreak Blue/Red in this build is restricted to allowlisted internal project IDs and an explicit internal-only operator flag. It is not enabled for this customer pilot. OpenAI organization approval, project enablement, model approval, and model/program compatibility are separate requirements. The environment flag is an operator restriction, not an access grant.
 
-PostgreSQL remains the source of truth. Event + outbox are committed atomically; Redis Streams dispatch is at-least-once; consumers must be idempotent. WebSocket fanout remains in-memory per API process. See deployment runbook and integration-test limitations before production use.
+The default model is gpt-6-sol. Set AEGIS_MODEL only to a model enabled for the API project. A failed or unauthorized request does not silently downgrade to a different model.
+
+## Customer project and API-key provisioning
+
+After Alembic migrations have run:
+
+~~~bash
+docker compose exec api python scripts/provision_project.py --name "Pilot Customer"
+~~~
+
+The command prints a new project ID and a randomly generated API key exactly once. The database stores only the SHA-256 hash. Store the plaintext key in a secret manager and deliver it through an approved secure channel, never email or source control.
+
+To revoke active keys for a project:
+
+~~~bash
+docker compose exec api python scripts/revoke_project_keys.py --project-id PROJECT_ID
+~~~
+
+The legacy HAMYLION_API_KEY remains as a compatibility fallback for the internal SAMURAI bridge. Do not give that global key to a pilot customer.
 
 ## Local run
 
 1. Copy .env.example to .env.
-2. Set unique values for HAMYLION_API_KEY, WS_TOKEN_SECRET, and POSTGRES_PASSWORD.
-3. Optionally set OPENAI_API_KEY to enable AEGIS.
-4. Run docker compose up --build.
+2. Set unique strong values for HAMYLION_API_KEY, WS_TOKEN_SECRET, and POSTGRES_PASSWORD.
+3. Add OPENAI_API_KEY from a project that can call the selected model. Keep AEGIS_CYBER_PROGRAM=standard.
+4. Run docker compose up --build -d.
+5. Check http://localhost:8000/health.
+6. Provision a dedicated project key as described above.
+7. Run tests with docker compose exec api python -m pytest -q.
+8. Submit examples/pilot_sample.py before customer artifacts.
 
-Alembic runs before API startup. Schema auto-creation is disabled by default.
+## Current limitations
+
+- Built-in deterministic checks are intentionally small heuristics, not a comprehensive SAST engine.
+- No Semgrep/Bandit full SAST integration, DAST, dependency graph scan, malware analysis, or network scanning.
+- No GitHub/GitLab repository integration or automatic PR comments.
+- No automatic patching or command execution.
+- No full PostgreSQL/Redis crash integration suite or load test has been completed in this branch.
+- No live OpenAI call has been validated until an operator configures credentials and tests the exact project/model access.
+- WebSocket fanout remains in-memory per API process.
+- Daybreak access is not assumed and is not enabled for this pilot.
+
+See PILOT.md for scope, customer prerequisites, smoke test, and acceptance criteria.
