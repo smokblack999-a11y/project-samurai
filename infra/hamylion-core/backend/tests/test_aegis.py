@@ -4,7 +4,7 @@ from app import aegis
 from app.aegis import AnalysisRequest, _cyber_access_program, redact_secrets
 
 def test_secret_redaction_removes_common_credentials():
-    raw = "Authorization: Bearer abc.def.ghi\\napi_key=sk-example-secret password: hunter2"
+    raw = "Authorization: Bearer abc.def.ghi api_key=sk-example-secret password: hunter2"
     cleaned = redact_secrets(raw)
     assert "abc.def.ghi" not in cleaned
     assert "sk-example-secret" not in cleaned
