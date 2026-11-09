@@ -10,7 +10,7 @@ import httpx
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from .auth import validate_api_key
+from .rate_limit import enforce_project_rate_limit
 from .config import settings
 
 router = APIRouter(prefix="/v1/security", tags=["security"])
@@ -79,6 +79,12 @@ def _cyber_access_program() -> str:
         raise HTTPException(503, "AEGIS cyber access program is misconfigured")
     if program != "standard" and not settings.AEGIS_INTERNAL_SECURITY_ONLY:
         raise HTTPException(403, "Daybreak is restricted to an approved internal security workspace")
+    allowed_models = {
+        "daybreak_blue": {"gpt-6-sol", "gpt-6.1-sol", "gpt-6-astra"},
+        "daybreak_red": {"gpt-5.6-cyber", "gpt-6-cyber"},
+    }
+    if program != "standard" and settings.AEGIS_MODEL not in allowed_models[program]:
+        raise HTTPException(503, "Configured model and Daybreak program are incompatible")
     return program
 
 def _extract_output_text(payload: dict) -> str:
@@ -138,7 +144,7 @@ async def run_analysis(request: AnalysisRequest, project_id: str) -> AnalysisRes
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
-                settings.OPENAI_RESPONSES_URL,
+                "https://api.openai.com/v1/responses",
                 headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
                 json=body
             )
@@ -163,5 +169,5 @@ async def run_analysis(request: AnalysisRequest, project_id: str) -> AnalysisRes
         raise HTTPException(502, "Security analysis response failed schema validation")
 
 @router.post("/analyze", response_model=AnalysisResult)
-async def analyze_security_artifact(request: AnalysisRequest, project_id: str = Depends(validate_api_key)):
+async def analyze_security_artifact(request: AnalysisRequest, project_id: str = Depends(enforce_project_rate_limit)):
     return await run_analysis(request, project_id)
