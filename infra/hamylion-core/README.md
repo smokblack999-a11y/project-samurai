@@ -23,6 +23,7 @@ Example request:
 - Raw submitted artifacts and model outputs are not written to the HAMYLION database by AEGIS.
 - Provider request uses store=false and a pseudonymous project-level safety_identifier.
 - Request size is capped at 20,000 characters; context at 2,000 characters; provider timeout is bounded.
+- A separate Redis-backed per-project AEGIS limit defaults to 10 analyses per minute; rate-limit failure blocks the request.
 - Responses must satisfy a strict JSON Schema and are validated again by Pydantic.
 - AI is advisory only. Findings require human verification; no automatic changes or tests are executed.
 - The service fails closed when provider credentials are absent or model access is unavailable.
