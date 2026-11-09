@@ -206,10 +206,9 @@ async def run_analysis(request: AnalysisRequest, project_id: str) -> AnalysisRes
         "text": {"format": {"type": "json_schema", "name": "hamylion_aegis_analysis", "strict": True, "schema": RESULT_SCHEMA}},
         "max_output_tokens": 1800,
         "safety_identifier": "hamylion-project-" + hashlib.sha256(project_id.encode()).hexdigest()[:24],
-        "store": False
+        "store": False,
+        "access_programs": {"cyber": access_program}
     }
-    if access_program != "standard":
-        body["access_programs"] = {"cyber": access_program}
 
     timeout = httpx.Timeout(settings.AEGIS_TIMEOUT_SECONDS, connect=5.0)
     try:
