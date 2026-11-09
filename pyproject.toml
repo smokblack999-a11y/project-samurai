@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentcheck"
+version = "0.1.0"
+description = "Defensive static Agent Production Readiness assessment toolkit"
+requires-python = ">=3.11"
+
+[project.scripts]
+agentcheck = "agentcheck.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
