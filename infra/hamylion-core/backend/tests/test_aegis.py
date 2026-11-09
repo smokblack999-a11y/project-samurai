@@ -15,7 +15,7 @@ def test_daybreak_is_blocked_outside_internal_workspace(monkeypatch):
     monkeypatch.setattr(aegis.settings, "AEGIS_CYBER_PROGRAM", "daybreak_blue", raising=False)
     monkeypatch.setattr(aegis.settings, "AEGIS_INTERNAL_SECURITY_ONLY", False, raising=False)
     with pytest.raises(HTTPException) as exc:
-        _cyber_access_program()
+        _cyber_access_program("project-a")
     assert exc.value.status_code == 403
 
 def test_standard_program_is_default_safe_path(monkeypatch):
@@ -26,3 +26,12 @@ def test_standard_program_is_default_safe_path(monkeypatch):
 def test_analysis_request_bounds_input():
     with pytest.raises(ValueError):
         AnalysisRequest(artifact_type="log", task="incident_triage", content="x" * 20001)
+
+def test_daybreak_requires_explicit_internal_project_allowlist(monkeypatch):
+    monkeypatch.setattr(aegis.settings, 'AEGIS_CYBER_PROGRAM', 'daybreak_blue', raising=False)
+    monkeypatch.setattr(aegis.settings, 'AEGIS_INTERNAL_SECURITY_ONLY', True, raising=False)
+    monkeypatch.setattr(aegis.settings, 'AEGIS_INTERNAL_PROJECT_IDS', {'internal-security'}, raising=False)
+    with pytest.raises(HTTPException) as exc:
+        _cyber_access_program('customer-project')
+    assert exc.value.status_code == 403
+    assert _cyber_access_program('internal-security') == 'daybreak_blue'
