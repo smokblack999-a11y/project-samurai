@@ -1,4 +1,6 @@
-from flask import Flask, jsonify, request, render_template_string, redirect
+import hmac
+
+from flask import Flask, Response, jsonify, request, render_template_string, redirect
 
 from src.config import Config
 from src.utils import now_str
@@ -16,8 +18,52 @@ app = Flask(__name__)
 
 
 def require_api_key() -> bool:
+    configured_key = Config.API_KEY
     provided = request.headers.get("X-API-Key", "")
-    return provided == Config.API_KEY
+    return bool(configured_key) and bool(provided) and hmac.compare_digest(
+        provided, configured_key
+    )
+
+
+def _unauthorized_api_key():
+    if not Config.API_KEY:
+        return jsonify({"ok": False, "error": "API_KEY is not configured"}), 503
+    return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+
+def _unauthorized_panel():
+    username = Config.PANEL_USERNAME
+    password = Config.PANEL_PASSWORD
+    if not username or not password:
+        return jsonify({"ok": False, "error": "Panel credentials are not configured"}), 503
+
+    auth = request.authorization
+    if (
+        not auth
+        or not auth.username
+        or not auth.password
+        or not hmac.compare_digest(auth.username, username)
+        or not hmac.compare_digest(auth.password, password)
+    ):
+        return Response(
+            "Authentication required",
+            401,
+            {"WWW-Authenticate": 'Basic realm="Samurai Admin Panel"'},
+        )
+    return None
+
+
+@app.before_request
+def protect_sensitive_routes():
+    path = request.path
+    if path == "/data" or path.startswith("/data/"):
+        if not require_api_key():
+            return _unauthorized_api_key()
+    if path == "/panel" or path.startswith("/panel/"):
+        panel_error = _unauthorized_panel()
+        if panel_error is not None:
+            return panel_error
+    return None
 
 
 PANEL_HTML = """
@@ -41,7 +87,6 @@ PANEL_HTML = """
 </head>
 <body>
     <h1>Samurai Panel</h1>
-
     <div class="box">
         <h2>System Info</h2>
         <p><b>App:</b> {{ app_name }}</p>
@@ -49,7 +94,6 @@ PANEL_HTML = """
         <p><b>Items count:</b> {{ items_count }}</p>
         <p><b>Time:</b> {{ time }}</p>
     </div>
-
     <div class="box">
         <h2>Add Item</h2>
         <form method="post" action="/panel/add">
@@ -58,24 +102,19 @@ PANEL_HTML = """
             <button type="submit">Add</button>
         </form>
     </div>
-
     <div class="box">
         <h2>Items</h2>
         {% for item in items %}
             <div class="item">
                 <h3>ID {{ item["id"] }}</h3>
                 <p><b>Created:</b> {{ item["created_at"] }}</p>
-                {% if item.get("updated_at") %}
-                    <p><b>Updated:</b> {{ item["updated_at"] }}</p>
-                {% endif %}
+                {% if item.get("updated_at") %}<p><b>Updated:</b> {{ item["updated_at"] }}</p>{% endif %}
                 <pre>{{ item }}</pre>
-
                 <form method="post" action="/panel/edit/{{ item['id'] }}">
                     <input type="text" name="name" value="{{ item['payload'].get('name', '') }}" required>
                     <input type="text" name="type" value="{{ item['payload'].get('type', '') }}" required>
                     <button type="submit">Update</button>
                 </form>
-
                 <form method="post" action="/panel/delete/{{ item['id'] }}">
                     <button type="submit" class="danger">Delete</button>
                 </form>
@@ -101,10 +140,7 @@ def home():
 
 @app.get("/health")
 def health():
-    return jsonify({
-        "status": "healthy",
-        "debug": Config.DEBUG,
-    })
+    return jsonify({"status": "healthy", "debug": Config.DEBUG})
 
 
 @app.get("/info")
@@ -124,11 +160,9 @@ def info():
 @app.get("/admin/info")
 def admin_info():
     if not require_api_key():
-        return jsonify({"ok": False, "error": "Unauthorized"}), 401
-
+        return _unauthorized_api_key()
     data = load_storage()
     items = data.get("items", [])
-
     return jsonify({
         "ok": True,
         "app": Config.APP_NAME,
@@ -161,10 +195,8 @@ def post_data():
 def get_data_item(item_id: int):
     ensure_storage_file()
     item = get_item_by_id(item_id)
-
     if not item:
         return jsonify({"ok": False, "error": "Item not found", "id": item_id}), 404
-
     return jsonify({"ok": True, "item": item})
 
 
@@ -172,16 +204,9 @@ def get_data_item(item_id: int):
 def put_data_item(item_id: int):
     ensure_storage_file()
     payload = request.get_json(silent=True) or {}
-
-    item = update_item(
-        item_id=item_id,
-        payload=payload,
-        updated_at=now_str(),
-    )
-
+    item = update_item(item_id=item_id, payload=payload, updated_at=now_str())
     if not item:
         return jsonify({"ok": False, "error": "Item not found", "id": item_id}), 404
-
     return jsonify({"ok": True, "item": item})
 
 
@@ -189,10 +214,8 @@ def put_data_item(item_id: int):
 def delete_data_item(item_id: int):
     ensure_storage_file()
     deleted = delete_item(item_id)
-
     if not deleted:
         return jsonify({"ok": False, "error": "Item not found", "id": item_id}), 404
-
     return jsonify({"ok": True, "deleted": deleted})
 
 
@@ -201,7 +224,6 @@ def panel():
     ensure_storage_file()
     data = load_storage()
     items = data.get("items", [])
-
     return render_template_string(
         PANEL_HTML,
         app_name=Config.APP_NAME,
@@ -216,13 +238,8 @@ def panel():
 def panel_add():
     name = request.form.get("name", "").strip()
     item_type = request.form.get("type", "").strip()
-
     if name and item_type:
-        add_item(
-            payload={"name": name, "type": item_type},
-            created_at=now_str(),
-        )
-
+        add_item(payload={"name": name, "type": item_type}, created_at=now_str())
     return redirect("/panel")
 
 
@@ -230,14 +247,12 @@ def panel_add():
 def panel_edit(item_id: int):
     name = request.form.get("name", "").strip()
     item_type = request.form.get("type", "").strip()
-
     if name and item_type:
         update_item(
             item_id=item_id,
             payload={"name": name, "type": item_type},
             updated_at=now_str(),
         )
-
     return redirect("/panel")
 
 
