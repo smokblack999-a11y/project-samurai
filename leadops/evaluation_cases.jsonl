@@ -1,0 +1,8 @@
+{"id":"buy-001","text":"Сколько стоит заказать сегодня?","expected_intent":"buying","min_score":90}
+{"id":"buy-002","text":"Хочу купить, сколько стоит?","expected_intent":"buying","min_score":78}
+{"id":"buy-003","text":"Можно оплатить сейчас?","expected_intent":"buying","min_score":78}
+{"id":"buy-004","text":"Мне нужна услуга на сегодня","expected_intent":"buying","min_score":90}
+{"id":"info-001","text":"Есть свободное время завтра?","expected_intent":"information","min_score":28}
+{"id":"info-002","text":"Как вы работаете?","expected_intent":"information","min_score":28}
+{"id":"info-003","text":"Где вы находитесь?","expected_intent":"information","min_score":28}
+{"id":"info-004","text":"Какие условия?","expected_intent":"information","min_score":28}
