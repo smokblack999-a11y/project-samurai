@@ -32,3 +32,14 @@ def test_invalid_courier_cannot_complete_order(tmp_path):
     store.approve(order_id)
     store.assign(order_id, 2002)
     assert store.mark_delivered(order_id, 9999, "photo") is None
+
+
+def test_database_file_is_owner_only(tmp_path):
+    import os
+    import pytest
+
+    if os.name != "posix":
+        pytest.skip("POSIX file permissions are not available")
+    db_path = tmp_path / "private-orders.sqlite3"
+    DeliveryStore(str(db_path))
+    assert db_path.stat().st_mode & 0o777 == 0o600
