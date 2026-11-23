@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://samurai.local/sentinel-x/event.schema.json",
+  "title": "Sentinel X Normalized Security Event",
+  "type": "object",
+  "required": ["source", "kind", "host"],
+  "properties": {
+    "source": {"type": "string", "enum": ["wazuh", "tetragon", "osquery", "yara", "manual"]},
+    "kind": {"type": "string"},
+    "host": {"type": "string"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "severity": {"type": "integer", "minimum": 0, "maximum": 100},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "process": {"type": ["string", "null"]},
+    "parent_process": {"type": ["string", "null"]},
+    "file_path": {"type": ["string", "null"]},
+    "file_hash": {"type": ["string", "null"]},
+    "remote_ip": {"type": ["string", "null"]},
+    "user": {"type": ["string", "null"]},
+    "tags": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}
