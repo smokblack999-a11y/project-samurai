@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -28,10 +29,11 @@ class Config:
         payment = os.getenv("DELIVERY_PAYMENT_INSTRUCTIONS", "").strip()
         if not price or not payment:
             raise RuntimeError("DELIVERY_PRICE_TEXT and DELIVERY_PAYMENT_INSTRUCTIONS are required")
+        default_db = str(Path(__file__).resolve().parent / "data" / "orders.sqlite3")
         return cls(
             token=token,
             admin_ids=admin_ids,
             price_text=price,
             payment_instructions=payment,
-            db_path=os.getenv("DELIVERY_DB_PATH", "delivery_crm.sqlite3"),
+            db_path=os.getenv("DELIVERY_DB_PATH", default_db),
         )
