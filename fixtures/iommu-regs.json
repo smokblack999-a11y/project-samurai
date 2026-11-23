@@ -1,0 +1,18 @@
+{
+  "source": "fixtures/iommu-regs.json",
+  "iommus": [
+    {
+      "name": "iommu0",
+      "enabled": true,
+      "device_id_bits": 16,
+      "phys_addr_bits": 48,
+      "ats": true,
+      "t2gpa": true,
+      "msi": true,
+      "reset_mode": "Off",
+      "pmp_enforced": true,
+      "pasid_supported": true,
+      "pasid_bits": 20
+    }
+  ]
+}
