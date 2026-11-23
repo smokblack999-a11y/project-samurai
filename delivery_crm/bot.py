@@ -72,6 +72,24 @@ async def order_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return RECEIPT
 
 
+async def receipt_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    store: DeliveryStore = context.application.bot_data["store"]
+    if len(context.args) != 1 or not context.args[0].isdigit():
+        await update.message.reply_text("Использование: /receipt ORDER_ID")
+        return ConversationHandler.END
+    order_id = int(context.args[0])
+    order = store.get_order(order_id)
+    if not order or order["customer_id"] != update.effective_user.id:
+        await update.message.reply_text("Заказ не найден.")
+        return ConversationHandler.END
+    if order["status"] != "awaiting_details":
+        await update.message.reply_text("Для этого заказа чек уже отправлен или статус изменён.")
+        return ConversationHandler.END
+    context.user_data["order_id"] = order_id
+    await update.message.reply_text(f"Отправьте фото чека для заказа №{order_id}.")
+    return RECEIPT
+
+
 async def receipt_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     store: DeliveryStore = context.application.bot_data["store"]
     order_id = context.user_data.get("order_id")
@@ -191,7 +209,7 @@ def build_application(cfg: Config) -> Application:
     app.bot_data["store"] = store
 
     conversation = ConversationHandler(
-        entry_points=[CommandHandler("order", order_start)],
+        entry_points=[CommandHandler("order", order_start), CommandHandler("receipt", receipt_start)],
         states={
             DETAILS: [MessageHandler(filters.TEXT & ~filters.COMMAND, order_details)],
             PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, order_phone)],
