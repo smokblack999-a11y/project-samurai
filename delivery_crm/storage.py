@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,9 @@ class DeliveryStore:
 
     def __init__(self, db_path: str):
         self.db_path = str(db_path)
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        parent = Path(self.db_path).parent
+        if not parent.exists():
+            parent.mkdir(parents=True, mode=0o700, exist_ok=True)
         with self._connect() as db:
             db.execute("""
                 CREATE TABLE IF NOT EXISTS orders (
@@ -33,6 +36,12 @@ class DeliveryStore:
 
     def _connect(self):
         db = sqlite3.connect(self.db_path, timeout=10)
+        try:
+            if os.name == "posix":
+                os.chmod(self.db_path, 0o600)
+        except OSError:
+            db.close()
+            raise
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys = ON")
         return db
