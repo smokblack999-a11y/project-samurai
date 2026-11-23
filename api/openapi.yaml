@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: Telegram LeadOps AI API
+  version: 0.1.0
+  description: Convert Telegram messages into ranked leads and recommended actions.
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: Service health
+  /api/v1/analyze/message:
+    post:
+      operationId: analyzeMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeMessageRequest'
+      responses:
+        '200':
+          description: Lead decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeadDecision'
+        '422':
+          description: Validation error
+components:
+  schemas:
+    AnalyzeMessageRequest:
+      type: object
+      required: [message_id, text]
+      properties:
+        message_id: {type: string}
+        chat_id: {type: string}
+        text: {type: string, minLength: 1, maxLength: 10000}
+        language_hint: {type: string}
+    LeadDecision:
+      type: object
+      required: [message_id, intent, lead_score, urgency, recommended_action, reason]
+      properties:
+        message_id: {type: string}
+        intent: {type: string, enum: [buying, question, support, spam, other]}
+        lead_score: {type: integer, minimum: 0, maximum: 100}
+        urgency: {type: string, enum: [low, medium, high]}
+        language: {type: string}
+        needs:
+          type: array
+          items: {type: string}
+        recommended_action:
+          type: string
+          enum: [human_followup, reply, ignore, escalate]
+        reason: {type: string}
