@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentCheck Benchmark Record",
+  "type": "object",
+  "required": ["target", "commit", "findings"],
+  "properties": {
+    "target": {"type": "string"},
+    "commit": {"type": "string"},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rule_id", "severity", "confidence", "evidence", "status"],
+        "properties": {
+          "rule_id": {"type": "string"},
+          "severity": {"enum": ["critical", "high", "medium", "low", "info"]},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 100},
+          "evidence": {"type": "string"},
+          "status": {"enum": ["candidate", "reproduced", "confirmed", "false_positive", "verified"]},
+          "remediation": {"type": "string"},
+          "regression": {"enum": ["not_tested", "passed", "failed"]}
+        }
+      }
+    }
+  }
+}
